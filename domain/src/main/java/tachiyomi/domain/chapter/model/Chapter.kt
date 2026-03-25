@@ -15,6 +15,10 @@ data class Chapter(
     val scanlator: String?,
     val lastModifiedAt: Long,
     val version: Long,
+    // KMK -->
+    val customSortOrder: Long? = null,
+    val excluded: Boolean = false,
+    // KMK <--
 ) {
     val isRecognizedNumber: Boolean
         get() = chapterNumber >= 0f
@@ -45,6 +49,10 @@ data class Chapter(
             scanlator = null,
             lastModifiedAt = 0,
             version = 1,
+            // KMK -->
+            customSortOrder = null,
+            excluded = false,
+            // KMK <--
         )
     }
 }

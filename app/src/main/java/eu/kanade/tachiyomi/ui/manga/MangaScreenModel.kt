@@ -122,6 +122,8 @@ import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.interactor.DeleteChapters
 import tachiyomi.domain.chapter.interactor.GetMergedChaptersByMangaId
+import tachiyomi.domain.chapter.interactor.ExcludeChapter
+import tachiyomi.domain.chapter.interactor.ReorderChapter
 import tachiyomi.domain.chapter.interactor.SetMangaDefaultChapterFlags
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
@@ -233,6 +235,8 @@ class MangaScreenModel(
     private val insertLibraryUpdateErrors: InsertLibraryUpdateErrors = Injekt.get(),
     private val insertLibraryUpdateErrorMessages: InsertLibraryUpdateErrorMessages = Injekt.get(),
     private val deleteChaptersFromDb: DeleteChapters = Injekt.get(),
+    private val reorderChapter: ReorderChapter = Injekt.get(),
+    private val excludeChapter: ExcludeChapter = Injekt.get(),
     // KMK <--
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
 
@@ -242,6 +246,7 @@ class MangaScreenModel(
     // KMK -->
     val useNewSourceNavigation by uiPreferences.useNewSourceNavigation().asState(screenModelScope)
     val themeCoverBased = uiPreferences.themeCoverBased().get()
+    private var savedChapterOrder: List<Pair<Long, Long?>>? = null
     // KMK <--
 
     val manga: Manga?
@@ -1554,6 +1559,30 @@ class MangaScreenModel(
     }
 
     // KMK -->
+    fun excludeChapters(items: List<ChapterList.Item>) {
+        val chapters = items.map { it.chapter }
+        screenModelScope.launchNonCancellable {
+            deleteChapters(chapters)
+            excludeChapter.await(chapters, excluded = true)
+        }
+        toggleAllSelection(false)
+    }
+
+    fun restoreChapters(items: List<ChapterList.Item>) {
+        val chapters = items.map { it.chapter }
+        screenModelScope.launchNonCancellable {
+            excludeChapter.await(chapters, excluded = false)
+        }
+        toggleAllSelection(false)
+    }
+
+    fun toggleShowExcludedChapters() {
+        val manga = successState?.manga ?: return
+        screenModelScope.launchNonCancellable {
+            setMangaChapterFlags.awaitSetShowExcluded(manga, !manga.showExcludedChapters)
+        }
+    }
+
     fun clearManga(
         deleteDownload: Boolean,
         removeChapters: Boolean,
@@ -1700,8 +1729,111 @@ class MangaScreenModel(
 
         screenModelScope.launchNonCancellable {
             setMangaChapterFlags.awaitSetSortingModeOrFlipOrder(manga, sort)
+            // KMK -->
+            if (sort == Manga.CHAPTER_SORTING_CUSTOM) {
+                initializeCustomSortOrder()
+                enterReorderMode()
+            }
+            // KMK <--
         }
     }
+
+    // KMK -->
+    fun reorderChapter(chapterItem: ChapterList.Item, newIndex: Int) {
+        val mangaId = successState?.manga?.id ?: return
+        screenModelScope.launchNonCancellable {
+            reorderChapter.await(mangaId, chapterItem.chapter, newIndex)
+        }
+    }
+
+    private suspend fun initializeCustomSortOrder() {
+        val chapters = successState?.processedChapters ?: return
+        // Only initialize if all customSortOrder are null (first time switching to custom)
+        if (chapters.any { it.chapter.customSortOrder != null }) return
+        val updates = chapters.mapIndexed { index, item ->
+            ChapterUpdate(id = item.chapter.id, customSortOrder = index.toLong())
+        }
+        updateChapter.awaitAll(updates)
+    }
+
+    fun enterReorderMode() {
+        val chapters = successState?.processedChapters ?: return
+        savedChapterOrder = chapters.map { it.chapter.id to it.chapter.customSortOrder }
+        updateSuccessState { it.copy(isReorderModeActive = true) }
+    }
+
+    fun exitReorderMode(save: Boolean) {
+        if (!save) {
+            val cached = savedChapterOrder
+            if (cached != null) {
+                screenModelScope.launchNonCancellable {
+                    val updates = cached.map { (id, order) ->
+                        ChapterUpdate(id = id, customSortOrder = order)
+                    }
+                    updateChapter.awaitAll(updates)
+                }
+            }
+        }
+        savedChapterOrder = null
+        updateSuccessState { it.copy(isReorderModeActive = false) }
+    }
+
+    fun moveChapterToTop(chapterItem: ChapterList.Item) {
+        val mangaId = successState?.manga?.id ?: return
+        screenModelScope.launchNonCancellable {
+            reorderChapter.await(mangaId, chapterItem.chapter, 0)
+        }
+    }
+
+    fun moveChapterToBottom(chapterItem: ChapterList.Item) {
+        val mangaId = successState?.manga?.id ?: return
+        val size = successState?.processedChapters?.size ?: return
+        if (size <= 1) return
+        screenModelScope.launchNonCancellable {
+            reorderChapter.await(mangaId, chapterItem.chapter, size - 1)
+        }
+    }
+
+    fun moveChaptersToTop(items: List<ChapterList.Item>) {
+        if (items.isEmpty()) return
+        val allChapters = successState?.processedChapters ?: return
+        val selectedIds = items.mapTo(HashSet()) { it.chapter.id }
+        toggleAllSelection(false)
+        screenModelScope.launchNonCancellable {
+            val selected = allChapters.filter { it.chapter.id in selectedIds }
+            val rest = allChapters.filter { it.chapter.id !in selectedIds }
+            val updates = (selected + rest).mapIndexed { index, item ->
+                ChapterUpdate(id = item.chapter.id, customSortOrder = index.toLong())
+            }
+            updateChapter.awaitAll(updates)
+        }
+    }
+
+    fun moveChaptersToBottom(items: List<ChapterList.Item>) {
+        if (items.isEmpty()) return
+        val allChapters = successState?.processedChapters ?: return
+        val selectedIds = items.mapTo(HashSet()) { it.chapter.id }
+        toggleAllSelection(false)
+        screenModelScope.launchNonCancellable {
+            val selected = allChapters.filter { it.chapter.id in selectedIds }
+            val rest = allChapters.filter { it.chapter.id !in selectedIds }
+            val updates = (rest + selected).mapIndexed { index, item ->
+                ChapterUpdate(id = item.chapter.id, customSortOrder = index.toLong())
+            }
+            updateChapter.awaitAll(updates)
+        }
+    }
+
+    fun resetCustomSortOrder() {
+        val chapters = successState?.processedChapters ?: return
+        savedChapterOrder = null
+        updateSuccessState { it.copy(isReorderModeActive = false) }
+        screenModelScope.launchNonCancellable {
+            val updates = chapters.map { ChapterUpdate(id = it.chapter.id, customSortOrder = null) }
+            updateChapter.awaitAll(updates)
+        }
+    }
+    // KMK <--
 
     fun setCurrentSettingsAsDefault(applyToExisting: Boolean) {
         val manga = successState?.manga ?: return
@@ -2028,6 +2160,7 @@ class MangaScreenModel(
              */
             val relatedMangaCollection: List<RelatedManga>? = null,
             val seedColor: Color? = manga.asMangaCover().vibrantCoverColor?.let { Color(it) },
+            val isReorderModeActive: Boolean = false,
             // KMK <--
         ) : State {
             // KMK -->
@@ -2056,7 +2189,9 @@ class MangaScreenModel(
             }
 
             val chapterListItems by lazy {
-                if (hideMissingChapters) {
+                // KMK -->
+                if (hideMissingChapters || manga.sorting == Manga.CHAPTER_SORTING_CUSTOM) {
+                // KMK <--
                     return@lazy processedChapters
                 }
 
@@ -2102,6 +2237,9 @@ class MangaScreenModel(
                 val downloadedFilter = manga.downloadedFilter
                 val bookmarkedFilter = manga.bookmarkedFilter
                 return asSequence()
+                    // KMK -->
+                    .filterNot { (chapter) -> !manga.showExcludedChapters && chapter.excluded }
+                    // KMK <--
                     .filter { (chapter) -> applyFilter(unreadFilter) { !chapter.read } }
                     .filter { (chapter) -> applyFilter(bookmarkedFilter) { chapter.bookmark } }
                     .filter { applyFilter(downloadedFilter) { it.isDownloaded || isLocalManga } }

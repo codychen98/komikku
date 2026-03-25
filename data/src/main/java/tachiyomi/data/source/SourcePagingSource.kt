@@ -8,7 +8,6 @@ import eu.kanade.tachiyomi.source.model.MetadataMangasPage
 import exh.log.xLogE
 import exh.metadata.metadata.RaisedSearchMetadata
 import mihon.domain.manga.model.toDomainManga
-import tachiyomi.core.common.util.QuerySanitizer.sanitize
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
@@ -22,7 +21,7 @@ class SourceSearchPagingSource(
     private val filters: FilterList,
 ) : BaseSourcePagingSource(source) {
     override suspend fun requestNextPage(currentPage: Int): MangasPage {
-        return source.getSearchManga(currentPage, query.sanitize(), filters)
+        return source.getSearchManga(currentPage, query, filters)
     }
 }
 

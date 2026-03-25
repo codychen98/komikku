@@ -12,7 +12,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PeopleAlt
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +37,7 @@ import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.RadioItem
 import tachiyomi.presentation.core.components.SortItem
@@ -57,6 +60,11 @@ fun ChapterSettingsDialog(
     onDisplayModeChanged: (Long) -> Unit,
     onSetAsDefault: (applyToExistingManga: Boolean) -> Unit,
     onResetToDefault: () -> Unit,
+    // KMK -->
+    onResetCustomOrder: () -> Unit = {},
+    showExcludedChapters: Boolean = false,
+    onToggleShowExcluded: () -> Unit = {},
+    // KMK <--
 ) {
     var showSetAsDefaultDialog by rememberSaveable { mutableStateOf(false) }
     if (showSetAsDefaultDialog) {
@@ -109,6 +117,10 @@ fun ChapterSettingsDialog(
                         onBookmarkedFilterChanged = onBookmarkedFilterChanged,
                         scanlatorFilterActive = scanlatorFilterActive,
                         onScanlatorFilterClicked = onScanlatorFilterClicked,
+                        // KMK -->
+                        showExcludedChapters = showExcludedChapters,
+                        onToggleShowExcluded = onToggleShowExcluded,
+                        // KMK <--
                     )
                 }
                 1 -> {
@@ -116,6 +128,9 @@ fun ChapterSettingsDialog(
                         sortingMode = manga?.sorting ?: 0,
                         sortDescending = manga?.sortDescending() ?: false,
                         onItemSelected = onSortModeChanged,
+                        // KMK -->
+                        onResetCustomOrder = onResetCustomOrder,
+                        // KMK <--
                     )
                 }
                 2 -> {
@@ -139,6 +154,10 @@ private fun ColumnScope.FilterPage(
     onBookmarkedFilterChanged: (TriState) -> Unit,
     scanlatorFilterActive: Boolean,
     onScanlatorFilterClicked: () -> Unit,
+    // KMK -->
+    showExcludedChapters: Boolean = false,
+    onToggleShowExcluded: () -> Unit = {},
+    // KMK <--
 ) {
     TriStateItem(
         label = stringResource(MR.strings.label_downloaded),
@@ -159,6 +178,13 @@ private fun ColumnScope.FilterPage(
         active = scanlatorFilterActive,
         onClick = onScanlatorFilterClicked,
     )
+    // KMK -->
+    LabeledCheckbox(
+        label = stringResource(KMR.strings.show_excluded_chapters),
+        checked = showExcludedChapters,
+        onCheckedChange = { onToggleShowExcluded() },
+    )
+    // KMK <--
 }
 
 @Composable
@@ -195,12 +221,18 @@ private fun ColumnScope.SortPage(
     sortingMode: Long,
     sortDescending: Boolean,
     onItemSelected: (Long) -> Unit,
+    // KMK -->
+    onResetCustomOrder: () -> Unit = {},
+    // KMK <--
 ) {
     listOf(
         MR.strings.sort_by_source to Manga.CHAPTER_SORTING_SOURCE,
         MR.strings.sort_by_number to Manga.CHAPTER_SORTING_NUMBER,
         MR.strings.sort_by_upload_date to Manga.CHAPTER_SORTING_UPLOAD_DATE,
         MR.strings.action_sort_alpha to Manga.CHAPTER_SORTING_ALPHABET,
+        // KMK -->
+        KMR.strings.sort_by_custom to Manga.CHAPTER_SORTING_CUSTOM,
+        // KMK <--
     ).map { (titleRes, mode) ->
         SortItem(
             label = stringResource(titleRes),
@@ -208,6 +240,46 @@ private fun ColumnScope.SortPage(
             onClick = { onItemSelected(mode) },
         )
     }
+    // KMK -->
+    if (sortingMode == Manga.CHAPTER_SORTING_CUSTOM) {
+        var showResetConfirm by rememberSaveable { mutableStateOf(false) }
+        if (showResetConfirm) {
+            AlertDialog(
+                onDismissRequest = { showResetConfirm = false },
+                title = { Text(stringResource(KMR.strings.dialog_reset_custom_order_title)) },
+                text = { Text(stringResource(KMR.strings.dialog_reset_custom_order_body)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onResetCustomOrder()
+                            showResetConfirm = false
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                    ) {
+                        Text(stringResource(MR.strings.action_ok))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showResetConfirm = false }) {
+                        Text(stringResource(MR.strings.action_cancel))
+                    }
+                },
+            )
+        }
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        TextButton(
+            onClick = { showResetConfirm = true },
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = MaterialTheme.colorScheme.error,
+            ),
+        ) {
+            Text(stringResource(KMR.strings.action_reset_custom_order))
+        }
+    }
+    // KMK <--
 }
 
 @Composable

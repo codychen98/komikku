@@ -32,6 +32,7 @@ import androidx.core.text.HtmlCompat
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.chapter.interactor.RestoreOrphanedChapters
 import eu.kanade.domain.extension.interactor.TrustExtension
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.source.service.SourcePreferences.DataSaver
@@ -240,6 +241,9 @@ object SettingsAdvancedScreen : SearchableSettings {
     private fun getDataGroup(): Preference.PreferenceGroup {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
+        // KMK -->
+        val scope = rememberCoroutineScope()
+        // KMK <--
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_data),
@@ -250,6 +254,22 @@ object SettingsAdvancedScreen : SearchableSettings {
                     onClick = {
                         Injekt.get<DownloadCache>().invalidateCache()
                         context.toast(MR.strings.download_cache_invalidated)
+                        // KMK -->
+                        val restoreOrphanedChapters = Injekt.get<RestoreOrphanedChapters>()
+                        scope.launchNonCancellable {
+                            val count = restoreOrphanedChapters.await()
+                            withUIContext {
+                                if (count > 0) {
+                                    context.toast(
+                                        context.stringResource(
+                                            MR.strings.restore_orphaned_chapters_success,
+                                            count,
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                        // KMK <--
                     },
                 ),
                 Preference.PreferenceItem.TextPreference(

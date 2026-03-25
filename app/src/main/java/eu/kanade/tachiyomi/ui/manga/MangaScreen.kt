@@ -396,6 +396,11 @@ class MangaScreen(
             onMultiMarkAsReadClicked = screenModel::markChaptersRead,
             onMarkPreviousAsReadClicked = screenModel::markPreviousChapterRead,
             onMultiDeleteClicked = screenModel::showDeleteChapterDialog,
+            // KMK -->
+            onMultiRemoveClicked = screenModel::excludeChapters,
+            onMultiRestoreClicked = screenModel::restoreChapters,
+            onToggleShowExcluded = screenModel::toggleShowExcludedChapters,
+            // KMK <--
             onChapterSwipe = screenModel::chapterSwipe,
             onChapterSelected = screenModel::toggleSelection,
             onAllChapterSelected = screenModel::toggleAllSelection,
@@ -461,6 +466,12 @@ class MangaScreen(
             coverRatio = coverRatio,
             onPaletteScreenClick = { navigator.push(PaletteScreen(successState.seedColor?.toArgb())) },
             hazeState = hazeState,
+            onReorderChapter = screenModel::reorderChapter,
+            onEnterReorderMode = screenModel::enterReorderMode,
+            onExitReorderMode = screenModel::exitReorderMode,
+            onMoveChaptersToTop = screenModel::moveChaptersToTop,
+            onMoveChaptersToBottom = screenModel::moveChaptersToBottom,
+            onResetCustomOrder = screenModel::resetCustomSortOrder,
             // KMK <--
         )
 
@@ -531,6 +542,11 @@ class MangaScreen(
                 onResetToDefault = screenModel::resetToDefaultSettings,
                 scanlatorFilterActive = successState.scanlatorFilterActive,
                 onScanlatorFilterClicked = { showScanlatorsDialog = true },
+                // KMK -->
+                onResetCustomOrder = screenModel::resetCustomSortOrder,
+                showExcludedChapters = successState.manga.showExcludedChapters,
+                onToggleShowExcluded = screenModel::toggleShowExcludedChapters,
+                // KMK <--
             )
             MangaScreenModel.Dialog.TrackSheet -> {
                 NavigatorAdaptiveSheet(

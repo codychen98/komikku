@@ -1,11 +1,21 @@
 package eu.kanade.presentation.manga
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
@@ -21,10 +31,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.VerticalAlignBottom
+import androidx.compose.material.icons.outlined.VerticalAlignTop
+import androidx.compose.material3.Button
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -32,7 +50,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableFloatState
@@ -59,6 +79,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAll
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastMap
@@ -120,6 +141,9 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.source.model.StubSource
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.ReorderableLazyListState
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.components.TwoPanelBox
@@ -189,6 +213,11 @@ fun MangaScreen(
     onMultiMarkAsReadClicked: (List<Chapter>, markAsRead: Boolean) -> Unit,
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
     onMultiDeleteClicked: (List<Chapter>) -> Unit,
+    // KMK -->
+    onMultiRemoveClicked: (List<ChapterList.Item>) -> Unit = {},
+    onMultiRestoreClicked: (List<ChapterList.Item>) -> Unit = {},
+    onToggleShowExcluded: () -> Unit = {},
+    // KMK <--
 
     // For chapter swipe
     onChapterSwipe: (ChapterList.Item, LibraryPreferences.ChapterSwipeAction) -> Unit,
@@ -212,6 +241,12 @@ fun MangaScreen(
     coverRatio: MutableFloatState,
     onPaletteScreenClick: () -> Unit,
     hazeState: HazeState,
+    onReorderChapter: ((ChapterList.Item, Int) -> Unit)? = null,
+    onEnterReorderMode: () -> Unit = {},
+    onExitReorderMode: (save: Boolean) -> Unit = {},
+    onMoveChaptersToTop: ((List<ChapterList.Item>) -> Unit)? = null,
+    onMoveChaptersToBottom: ((List<ChapterList.Item>) -> Unit)? = null,
+    onResetCustomOrder: () -> Unit = {},
     // KMK <--
 ) {
     val context = LocalContext.current
@@ -263,6 +298,11 @@ fun MangaScreen(
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
             onMultiDeleteClicked = onMultiDeleteClicked,
+            // KMK -->
+            onMultiRemoveClicked = onMultiRemoveClicked,
+            onMultiRestoreClicked = onMultiRestoreClicked,
+            onToggleShowExcluded = onToggleShowExcluded,
+            // KMK <--
             onChapterSwipe = onChapterSwipe,
             onChapterSelected = onChapterSelected,
             onAllChapterSelected = onAllChapterSelected,
@@ -281,6 +321,12 @@ fun MangaScreen(
             coverRatio = coverRatio,
             onPaletteScreenClick = onPaletteScreenClick,
             hazeState = hazeState,
+            onReorderChapter = onReorderChapter,
+            onEnterReorderMode = onEnterReorderMode,
+            onExitReorderMode = onExitReorderMode,
+            onMoveChaptersToTop = onMoveChaptersToTop,
+            onMoveChaptersToBottom = onMoveChaptersToBottom,
+            onResetCustomOrder = onResetCustomOrder,
             // KMK <--
         )
     } else {
@@ -325,6 +371,11 @@ fun MangaScreen(
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
             onMultiDeleteClicked = onMultiDeleteClicked,
+            // KMK -->
+            onMultiRemoveClicked = onMultiRemoveClicked,
+            onMultiRestoreClicked = onMultiRestoreClicked,
+            onToggleShowExcluded = onToggleShowExcluded,
+            // KMK <--
             onChapterSwipe = onChapterSwipe,
             onChapterSelected = onChapterSelected,
             onAllChapterSelected = onAllChapterSelected,
@@ -343,6 +394,12 @@ fun MangaScreen(
             coverRatio = coverRatio,
             onPaletteScreenClick = onPaletteScreenClick,
             hazeState = hazeState,
+            onReorderChapter = onReorderChapter,
+            onEnterReorderMode = onEnterReorderMode,
+            onExitReorderMode = onExitReorderMode,
+            onMoveChaptersToTop = onMoveChaptersToTop,
+            onMoveChaptersToBottom = onMoveChaptersToBottom,
+            onResetCustomOrder = onResetCustomOrder,
             // KMK <--
         )
     }
@@ -399,6 +456,11 @@ private fun MangaScreenSmallImpl(
     onMultiMarkAsReadClicked: (List<Chapter>, markAsRead: Boolean) -> Unit,
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
     onMultiDeleteClicked: (List<Chapter>) -> Unit,
+    // KMK -->
+    onMultiRemoveClicked: (List<ChapterList.Item>) -> Unit = {},
+    onMultiRestoreClicked: (List<ChapterList.Item>) -> Unit = {},
+    onToggleShowExcluded: () -> Unit = {},
+    // KMK <--
 
     // For chapter swipe
     onChapterSwipe: (ChapterList.Item, LibraryPreferences.ChapterSwipeAction) -> Unit,
@@ -422,6 +484,12 @@ private fun MangaScreenSmallImpl(
     coverRatio: MutableFloatState,
     onPaletteScreenClick: () -> Unit,
     hazeState: HazeState,
+    onReorderChapter: ((ChapterList.Item, Int) -> Unit)? = null,
+    onEnterReorderMode: () -> Unit = {},
+    onExitReorderMode: (save: Boolean) -> Unit = {},
+    onMoveChaptersToTop: ((List<ChapterList.Item>) -> Unit)? = null,
+    onMoveChaptersToBottom: ((List<ChapterList.Item>) -> Unit)? = null,
+    onResetCustomOrder: () -> Unit = {},
     // KMK <--
 ) {
     val chapterListState = rememberLazyListState()
@@ -445,6 +513,36 @@ private fun MangaScreenSmallImpl(
     val expandRelatedMangas by uiPreferences.expandRelatedMangas().collectAsState()
     val showRelatedMangasInOverflow by uiPreferences.relatedMangasInOverflow().collectAsState()
 
+    val isCustomSortEnabled = state.manga.sorting == Manga.CHAPTER_SORTING_CUSTOM
+    val canReorder = isCustomSortEnabled && state.isReorderModeActive && onReorderChapter != null
+    val chaptersItemState = remember(chapters) {
+        @Suppress("UNCHECKED_CAST")
+        (chapters as List<ChapterList>).toMutableStateList()
+    }
+    val reorderableChapterListState = if (canReorder) {
+        rememberReorderableLazyListState(chapterListState) { from, to ->
+            val fromKey = from.key as? String ?: return@rememberReorderableLazyListState
+            val toKey = to.key as? String ?: return@rememberReorderableLazyListState
+            if (!fromKey.startsWith("chapter-") || !toKey.startsWith("chapter-")) return@rememberReorderableLazyListState
+            val fromId = fromKey.removePrefix("chapter-").toLongOrNull() ?: return@rememberReorderableLazyListState
+            val toId = toKey.removePrefix("chapter-").toLongOrNull() ?: return@rememberReorderableLazyListState
+            val fromIdx = chaptersItemState.indexOfFirst { it is ChapterList.Item && it.id == fromId }
+            val toIdx = chaptersItemState.indexOfFirst { it is ChapterList.Item && it.id == toId }
+            if (fromIdx >= 0 && toIdx >= 0) {
+                val moved = chaptersItemState.removeAt(fromIdx) as? ChapterList.Item ?: return@rememberReorderableLazyListState
+                chaptersItemState.add(toIdx, moved)
+                onReorderChapter!!(moved, toIdx)
+            }
+        }
+    } else {
+        null
+    }
+    LaunchedEffect(chapters) {
+        if (reorderableChapterListState?.isAnyItemDragging != true) {
+            chaptersItemState.clear()
+            chaptersItemState.addAll(chapters as List<ChapterList>)
+        }
+    }
     var layoutSize by remember { mutableStateOf(IntSize.Zero) }
     var fabSize by remember { mutableStateOf(IntSize.Zero) }
     var positionOnScreen by remember { mutableStateOf(Offset.Zero) }
@@ -454,10 +552,13 @@ private fun MangaScreenSmallImpl(
     // KMK <--
 
     BackHandler(onBack = {
-        if (isAnySelected) {
-            onAllChapterSelected(false)
-        } else {
-            navigateUp()
+        when {
+            // KMK -->
+            state.isReorderModeActive && isAnySelected -> onAllChapterSelected(false)
+            state.isReorderModeActive -> onExitReorderMode(false)
+            // KMK <--
+            isAnySelected -> onAllChapterSelected(false)
+            else -> navigateUp()
         }
     })
 
@@ -519,18 +620,102 @@ private fun MangaScreenSmallImpl(
             )
         },
         bottomBar = {
+            // KMK -->
             val selectedChapters = remember(chapters) {
                 chapters.filter { it.selected }
             }
-            SharedMangaBottomActionMenu(
-                selected = selectedChapters,
-                onMultiBookmarkClicked = onMultiBookmarkClicked,
-                onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
-                onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
-                onDownloadChapter = onDownloadChapter,
-                onMultiDeleteClicked = onMultiDeleteClicked,
-                fillFraction = 1f,
-            )
+            // KMK <--
+            Column {
+                // KMK -->
+                AnimatedVisibility(
+                    visible = state.isReorderModeActive,
+                    enter = slideInVertically { it },
+                    exit = slideOutVertically { it },
+                ) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shadowElevation = 8.dp,
+                        color = MaterialTheme.colorScheme.surface,
+                    ) {
+                        Column {
+                            AnimatedVisibility(visible = isAnySelected) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    TextButton(
+                                        onClick = { onMoveChaptersToTop?.invoke(selectedChapters) },
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.VerticalAlignTop,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(KMR.strings.action_move_to_top))
+                                    }
+                                    TextButton(
+                                        onClick = { onMoveChaptersToBottom?.invoke(selectedChapters) },
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.VerticalAlignBottom,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(KMR.strings.action_move_to_bottom))
+                                    }
+                                }
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .navigationBarsPadding()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                TextButton(onClick = { onExitReorderMode(false) }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(stringResource(KMR.strings.action_discard))
+                                }
+                                Button(onClick = { onExitReorderMode(true) }) {
+                                    Text(stringResource(KMR.strings.action_save_order))
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Outlined.Lock,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                // KMK <--
+                SharedMangaBottomActionMenu(
+                    selected = if (state.isReorderModeActive) emptyList() else selectedChapters,
+                    onMultiBookmarkClicked = onMultiBookmarkClicked,
+                    onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
+                    onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
+                    onDownloadChapter = onDownloadChapter,
+                    onMultiDeleteClicked = onMultiDeleteClicked,
+                    // KMK -->
+                    onMultiRemoveClicked = onMultiRemoveClicked,
+                    onMultiRestoreClicked = onMultiRestoreClicked,
+                    showExcludedChapters = state.manga.showExcludedChapters,
+                    // KMK <--
+                    fillFraction = 1f,
+                )
+            }
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
@@ -788,13 +973,25 @@ private fun MangaScreenSmallImpl(
                             chapterCount = chapters.size,
                             missingChapterCount = missingChapterCount,
                             onClick = onFilterClicked,
+                            // KMK -->
+                            isCustomSort = isCustomSortEnabled,
+                            isReorderModeActive = state.isReorderModeActive,
+                            onEditOrderClick = if (isCustomSortEnabled) {
+                                { if (state.isReorderModeActive) onExitReorderMode(true) else onEnterReorderMode() }
+                            } else {
+                                null
+                            },
+                            // KMK <--
                         )
                     }
 
                     sharedChapterItems(
                         manga = state.manga,
                         mergedData = state.mergedData,
-                        chapters = listItem,
+                        // KMK -->
+                        chapters = if (canReorder) chaptersItemState else listItem,
+                        reorderableState = reorderableChapterListState,
+                        // KMK <--
                         isAnyChapterSelected = chapters.fastAny { it.selected },
                         chapterSwipeStartAction = chapterSwipeStartAction,
                         chapterSwipeEndAction = chapterSwipeEndAction,
@@ -863,6 +1060,11 @@ private fun MangaScreenLargeImpl(
     onMultiMarkAsReadClicked: (List<Chapter>, markAsRead: Boolean) -> Unit,
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
     onMultiDeleteClicked: (List<Chapter>) -> Unit,
+    // KMK -->
+    onMultiRemoveClicked: (List<ChapterList.Item>) -> Unit = {},
+    onMultiRestoreClicked: (List<ChapterList.Item>) -> Unit = {},
+    onToggleShowExcluded: () -> Unit = {},
+    // KMK <--
 
     // For swipe actions
     onChapterSwipe: (ChapterList.Item, LibraryPreferences.ChapterSwipeAction) -> Unit,
@@ -886,6 +1088,12 @@ private fun MangaScreenLargeImpl(
     coverRatio: MutableFloatState,
     onPaletteScreenClick: () -> Unit,
     hazeState: HazeState,
+    onReorderChapter: ((ChapterList.Item, Int) -> Unit)? = null,
+    onEnterReorderMode: () -> Unit = {},
+    onExitReorderMode: (save: Boolean) -> Unit = {},
+    onMoveChaptersToTop: ((List<ChapterList.Item>) -> Unit)? = null,
+    onMoveChaptersToBottom: ((List<ChapterList.Item>) -> Unit)? = null,
+    onResetCustomOrder: () -> Unit = {},
     // KMK <--
 ) {
     val layoutDirection = LocalLayoutDirection.current
@@ -908,6 +1116,12 @@ private fun MangaScreenLargeImpl(
     val expandRelatedMangas by uiPreferences.expandRelatedMangas().collectAsState()
     val showRelatedMangasInOverflow by uiPreferences.relatedMangasInOverflow().collectAsState()
 
+    val isCustomSortEnabled = state.manga.sorting == Manga.CHAPTER_SORTING_CUSTOM
+    val canReorder = isCustomSortEnabled && state.isReorderModeActive && onReorderChapter != null
+    val chaptersItemState = remember(chapters) {
+        @Suppress("UNCHECKED_CAST")
+        (chapters as List<ChapterList>).toMutableStateList()
+    }
     var layoutSize by remember { mutableStateOf(IntSize.Zero) }
     var fabSize by remember { mutableStateOf(IntSize.Zero) }
     var positionOnScreen by remember { mutableStateOf(Offset.Zero) }
@@ -921,11 +1135,41 @@ private fun MangaScreenLargeImpl(
 
     val chapterListState = rememberLazyListState()
 
+    // KMK -->
+    val reorderableChapterListState = if (canReorder) {
+        rememberReorderableLazyListState(chapterListState) { from, to ->
+            val fromKey = from.key as? String ?: return@rememberReorderableLazyListState
+            val toKey = to.key as? String ?: return@rememberReorderableLazyListState
+            if (!fromKey.startsWith("chapter-") || !toKey.startsWith("chapter-")) return@rememberReorderableLazyListState
+            val fromId = fromKey.removePrefix("chapter-").toLongOrNull() ?: return@rememberReorderableLazyListState
+            val toId = toKey.removePrefix("chapter-").toLongOrNull() ?: return@rememberReorderableLazyListState
+            val fromIdx = chaptersItemState.indexOfFirst { it is ChapterList.Item && it.id == fromId }
+            val toIdx = chaptersItemState.indexOfFirst { it is ChapterList.Item && it.id == toId }
+            if (fromIdx >= 0 && toIdx >= 0) {
+                val moved = chaptersItemState.removeAt(fromIdx) as? ChapterList.Item ?: return@rememberReorderableLazyListState
+                chaptersItemState.add(toIdx, moved)
+                onReorderChapter!!(moved, toIdx)
+            }
+        }
+    } else {
+        null
+    }
+    LaunchedEffect(chapters) {
+        if (reorderableChapterListState?.isAnyItemDragging != true) {
+            chaptersItemState.clear()
+            chaptersItemState.addAll(chapters as List<ChapterList>)
+        }
+    }
+    // KMK <--
+
     BackHandler(onBack = {
-        if (isAnySelected) {
-            onAllChapterSelected(false)
-        } else {
-            navigateUp()
+        when {
+            // KMK -->
+            state.isReorderModeActive && isAnySelected -> onAllChapterSelected(false)
+            state.isReorderModeActive -> onExitReorderMode(false)
+            // KMK <--
+            isAnySelected -> onAllChapterSelected(false)
+            else -> navigateUp()
         }
     })
 
@@ -974,22 +1218,106 @@ private fun MangaScreenLargeImpl(
             )
         },
         bottomBar = {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.BottomEnd,
-            ) {
-                val selectedChapters = remember(chapters) {
-                    chapters.filter { it.selected }
+            // KMK -->
+            val selectedChapters = remember(chapters) {
+                chapters.filter { it.selected }
+            }
+            // KMK <--
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // KMK -->
+                AnimatedVisibility(
+                    visible = state.isReorderModeActive,
+                    enter = slideInVertically { it },
+                    exit = slideOutVertically { it },
+                ) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shadowElevation = 8.dp,
+                        color = MaterialTheme.colorScheme.surface,
+                    ) {
+                        Column {
+                            AnimatedVisibility(visible = isAnySelected) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    TextButton(
+                                        onClick = { onMoveChaptersToTop?.invoke(selectedChapters) },
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.VerticalAlignTop,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(KMR.strings.action_move_to_top))
+                                    }
+                                    TextButton(
+                                        onClick = { onMoveChaptersToBottom?.invoke(selectedChapters) },
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.VerticalAlignBottom,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(KMR.strings.action_move_to_bottom))
+                                    }
+                                }
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .navigationBarsPadding()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                TextButton(onClick = { onExitReorderMode(false) }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(stringResource(KMR.strings.action_discard))
+                                }
+                                Button(onClick = { onExitReorderMode(true) }) {
+                                    Text(stringResource(KMR.strings.action_save_order))
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Outlined.Lock,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-                SharedMangaBottomActionMenu(
-                    selected = selectedChapters,
-                    onMultiBookmarkClicked = onMultiBookmarkClicked,
-                    onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
-                    onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
-                    onDownloadChapter = onDownloadChapter,
-                    onMultiDeleteClicked = onMultiDeleteClicked,
-                    fillFraction = 0.5f,
-                )
+                // KMK <--
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.BottomEnd,
+                ) {
+                    SharedMangaBottomActionMenu(
+                        selected = if (state.isReorderModeActive) emptyList() else selectedChapters,
+                        onMultiBookmarkClicked = onMultiBookmarkClicked,
+                        onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
+                        onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
+                        onDownloadChapter = onDownloadChapter,
+                        onMultiDeleteClicked = onMultiDeleteClicked,
+                        // KMK -->
+                        onMultiRemoveClicked = onMultiRemoveClicked,
+                        onMultiRestoreClicked = onMultiRestoreClicked,
+                        showExcludedChapters = state.manga.showExcludedChapters,
+                        // KMK <--
+                        fillFraction = 0.5f,
+                    )
+                }
             }
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -1227,13 +1555,25 @@ private fun MangaScreenLargeImpl(
                                     chapterCount = chapters.size,
                                     missingChapterCount = missingChapterCount,
                                     onClick = onFilterButtonClicked,
+                                    // KMK -->
+                                    isCustomSort = isCustomSortEnabled,
+                                    isReorderModeActive = state.isReorderModeActive,
+                                    onEditOrderClick = if (isCustomSortEnabled) {
+                                        { if (state.isReorderModeActive) onExitReorderMode(true) else onEnterReorderMode() }
+                                    } else {
+                                        null
+                                    },
+                                    // KMK <--
                                 )
                             }
 
                             sharedChapterItems(
                                 manga = state.manga,
                                 mergedData = state.mergedData,
-                                chapters = listItem,
+                                // KMK -->
+                                chapters = if (canReorder) chaptersItemState else listItem,
+                                reorderableState = reorderableChapterListState,
+                                // KMK <--
                                 isAnyChapterSelected = chapters.fastAny { it.selected },
                                 chapterSwipeStartAction = chapterSwipeStartAction,
                                 chapterSwipeEndAction = chapterSwipeEndAction,
@@ -1261,6 +1601,11 @@ private fun SharedMangaBottomActionMenu(
     onMarkPreviousAsReadClicked: (Chapter) -> Unit,
     onDownloadChapter: ((List<ChapterList.Item>, ChapterDownloadAction) -> Unit)?,
     onMultiDeleteClicked: (List<Chapter>) -> Unit,
+    // KMK -->
+    onMultiRemoveClicked: (List<ChapterList.Item>) -> Unit = {},
+    onMultiRestoreClicked: (List<ChapterList.Item>) -> Unit = {},
+    showExcludedChapters: Boolean = false,
+    // KMK <--
     fillFraction: Float,
     modifier: Modifier = Modifier,
 ) {
@@ -1292,6 +1637,14 @@ private fun SharedMangaBottomActionMenu(
         }.takeIf {
             selected.fastAny { it.downloadState == Download.State.DOWNLOADED }
         },
+        // KMK -->
+        onRemoveClicked = {
+            onMultiRemoveClicked(selected)
+        }.takeIf { selected.fastAny { !it.chapter.excluded } },
+        onRestoreClicked = {
+            onMultiRestoreClicked(selected)
+        }.takeIf { showExcludedChapters && selected.fastAll { it.chapter.excluded } },
+        // KMK <--
     )
 }
 
@@ -1309,6 +1662,9 @@ private fun LazyListScope.sharedChapterItems(
     onDownloadChapter: ((List<ChapterList.Item>, ChapterDownloadAction) -> Unit)?,
     onChapterSelected: (ChapterList.Item, Boolean, Boolean, Boolean) -> Unit,
     onChapterSwipe: (ChapterList.Item, LibraryPreferences.ChapterSwipeAction) -> Unit,
+    // KMK -->
+    reorderableState: ReorderableLazyListState? = null,
+    // KMK <--
 ) {
     items(
         items = chapters,
@@ -1329,73 +1685,92 @@ private fun LazyListScope.sharedChapterItems(
                 MissingChapterCountListItem(count = item.count)
             }
             is ChapterList.Item -> {
-                MangaChapterListItem(
-                    title = if (manga.displayMode == Manga.CHAPTER_DISPLAY_NUMBER) {
-                        stringResource(
-                            MR.strings.display_mode_chapter,
-                            formatChapterNumber(item.chapter.chapterNumber),
-                        )
-                    } else {
-                        item.chapter.name
-                    },
-                    date = item.chapter.dateUpload
-                        .takeIf { it > 0L }
-                        ?.let {
-                            // SY -->
-                            if (manga.isEhBasedManga()) {
-                                MetadataUtil.EX_DATE_FORMAT
-                                    .format(ZonedDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault()))
-                            } else {
-                                relativeDateText(item.chapter.dateUpload)
-                            }
-                            // SY <--
-                        },
-                    readProgress = item.chapter.lastPageRead
-                        .takeIf {
-                            /* SY --> */(!item.chapter.read || alwaysShowReadingProgress)/* SY <-- */ && it > 0L
-                        }
-                        ?.let {
+                // KMK -->
+                val chapterItemContent: @Composable (dragModifier: Modifier?) -> Unit = { dragModifier ->
+                // KMK <--
+                    MangaChapterListItem(
+                        title = if (manga.displayMode == Manga.CHAPTER_DISPLAY_NUMBER) {
                             stringResource(
-                                MR.strings.chapter_progress,
-                                it + 1,
+                                MR.strings.display_mode_chapter,
+                                formatChapterNumber(item.chapter.chapterNumber),
+                            )
+                        } else {
+                            item.chapter.name
+                        },
+                        date = item.chapter.dateUpload
+                            .takeIf { it > 0L }
+                            ?.let {
+                                // SY -->
+                                if (manga.isEhBasedManga()) {
+                                    MetadataUtil.EX_DATE_FORMAT
+                                        .format(ZonedDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault()))
+                                } else {
+                                    relativeDateText(item.chapter.dateUpload)
+                                }
+                                // SY <--
+                            },
+                        readProgress = item.chapter.lastPageRead
+                            .takeIf {
+                                /* SY --> */(!item.chapter.read || alwaysShowReadingProgress)/* SY <-- */ && it > 0L
+                            }
+                            ?.let {
+                                stringResource(
+                                    MR.strings.chapter_progress,
+                                    it + 1,
+                                )
+                            },
+                        scanlator = item.chapter.scanlator.takeIf {
+                            !it.isNullOrBlank() /* SY --> */ && item.showScanlator /* SY <-- */
+                        },
+                        // SY -->
+                        sourceName = item.sourceName,
+                        // SY <--
+                        read = item.chapter.read,
+                        bookmark = item.chapter.bookmark,
+                        selected = item.selected,
+                        // KMK -->
+                        excluded = item.chapter.excluded,
+                        // KMK <--
+                        downloadIndicatorEnabled =
+                        !isAnyChapterSelected && !(mergedData?.manga?.get(item.chapter.mangaId) ?: manga).isLocal(),
+                        downloadStateProvider = { item.downloadState },
+                        downloadProgressProvider = { item.downloadProgress },
+                        chapterSwipeStartAction = chapterSwipeStartAction,
+                        chapterSwipeEndAction = chapterSwipeEndAction,
+                        onLongClick = {
+                            onChapterSelected(item, !item.selected, true, true)
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        },
+                        onClick = {
+                            onChapterItemClick(
+                                chapterItem = item,
+                                isAnyChapterSelected = isAnyChapterSelected,
+                                onToggleSelection = { onChapterSelected(item, !item.selected, true, false) },
+                                onChapterClicked = onChapterClicked,
                             )
                         },
-                    scanlator = item.chapter.scanlator.takeIf {
-                        !it.isNullOrBlank() /* SY --> */ && item.showScanlator /* SY <-- */
-                    },
-                    // SY -->
-                    sourceName = item.sourceName,
-                    // SY <--
-                    read = item.chapter.read,
-                    bookmark = item.chapter.bookmark,
-                    selected = item.selected,
-                    downloadIndicatorEnabled =
-                    !isAnyChapterSelected && !(mergedData?.manga?.get(item.chapter.mangaId) ?: manga).isLocal(),
-                    downloadStateProvider = { item.downloadState },
-                    downloadProgressProvider = { item.downloadProgress },
-                    chapterSwipeStartAction = chapterSwipeStartAction,
-                    chapterSwipeEndAction = chapterSwipeEndAction,
-                    onLongClick = {
-                        onChapterSelected(item, !item.selected, true, true)
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    },
-                    onClick = {
-                        onChapterItemClick(
-                            chapterItem = item,
-                            isAnyChapterSelected = isAnyChapterSelected,
-                            onToggleSelection = { onChapterSelected(item, !item.selected, true, false) },
-                            onChapterClicked = onChapterClicked,
-                        )
-                    },
-                    onDownloadClick = if (onDownloadChapter != null) {
-                        { onDownloadChapter(listOf(item), it) }
-                    } else {
-                        null
-                    },
-                    onChapterSwipe = {
-                        onChapterSwipe(item, it)
-                    },
-                )
+                        onDownloadClick = if (onDownloadChapter != null) {
+                            { onDownloadChapter(listOf(item), it) }
+                        } else {
+                            null
+                        },
+                        onChapterSwipe = {
+                            onChapterSwipe(item, it)
+                        },
+                        // KMK -->
+                        dragModifier = dragModifier,
+                        // KMK <--
+                    )
+                // KMK -->
+                }
+                if (reorderableState != null) {
+                    ReorderableItem(reorderableState, "chapter-${item.id}") {
+                        chapterItemContent(Modifier.draggableHandle())
+                    }
+                } else {
+                    chapterItemContent(null)
+                }
+                // KMK <--
             }
         }
     }

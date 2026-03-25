@@ -91,6 +91,22 @@ class SetMangaChapterFlags(
         )
     }
 
+    // KMK -->
+    suspend fun awaitSetShowExcluded(manga: Manga, showExcluded: Boolean): Boolean {
+        val newFlags = if (showExcluded) {
+            manga.chapterFlags or Manga.CHAPTER_SHOW_EXCLUDED
+        } else {
+            manga.chapterFlags and Manga.CHAPTER_SHOW_EXCLUDED.inv()
+        }
+        return mangaRepository.update(
+            MangaUpdate(
+                id = manga.id,
+                chapterFlags = newFlags,
+            ),
+        )
+    }
+    // KMK <--
+
     private fun Long.setFlag(flag: Long, mask: Long): Long {
         return this and mask.inv() or (flag and mask)
     }

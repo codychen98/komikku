@@ -238,4 +238,19 @@
     <string name="pref_discord_show_download_button_summary">Displays a button to download the app</string>
     <string name="pref_discord_show_discord_button">Show Discord Button</string>
     <string name="pref_discord_show_discord_button_summary">Displays a button to join the Discord server</string>
+    <!-- Chapter sorting -->
+    <string name="sort_by_custom">Custom order</string>
+    <!-- KMK: Custom chapter order reorder mode -->
+    <string name="action_save_order">Save order</string>
+    <string name="action_discard">Discard</string>
+    <string name="action_move_to_top">Move to top</string>
+    <string name="action_move_to_bottom">Move to bottom</string>
+    <string name="action_reset_custom_order">Reset custom order</string>
+    <string name="dialog_reset_custom_order_title">Reset custom order?</string>
+    <string name="dialog_reset_custom_order_body">This will clear your saved chapter order. Chapters will return to their source order.</string>
+    <!-- KMK: Chapter exclusion -->
+    <string name="action_remove_chapter">Remove</string>
+    <string name="action_restore_chapter">Restore</string>
+    <string name="show_excluded_chapters">Show removed chapters</string>
+    <string name="excluded_chapter_badge">REMOVED</string>
 </resources>

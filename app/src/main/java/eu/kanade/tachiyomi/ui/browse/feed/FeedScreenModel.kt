@@ -32,7 +32,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import mihon.domain.manga.model.toDomainManga
-import tachiyomi.core.common.util.QuerySanitizer.sanitize
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
@@ -288,7 +287,7 @@ open class FeedScreenModel(
                                 } else {
                                     itemUI.source.getSearchManga(
                                         1,
-                                        itemUI.savedSearch.query?.sanitize().orEmpty(),
+                                        itemUI.savedSearch.query.orEmpty(),
                                         getFilterList(itemUI.savedSearch, itemUI.source),
                                     )
                                 }

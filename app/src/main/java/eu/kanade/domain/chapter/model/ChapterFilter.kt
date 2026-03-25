@@ -25,7 +25,10 @@ fun List<Chapter>.applyFilters(
     val downloadedFilter = manga.downloadedFilter
     val bookmarkedFilter = manga.bookmarkedFilter
 
-    return filter { chapter -> applyFilter(unreadFilter) { !chapter.read } }
+    // KMK -->
+    return filterNot { chapter -> !manga.showExcludedChapters && chapter.excluded }
+    // KMK <--
+        .filter { chapter -> applyFilter(unreadFilter) { !chapter.read } }
         .filter { chapter -> applyFilter(bookmarkedFilter) { chapter.bookmark } }
         .filter { chapter ->
             // SY -->

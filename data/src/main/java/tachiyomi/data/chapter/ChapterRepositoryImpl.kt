@@ -31,6 +31,10 @@ class ChapterRepositoryImpl(
                         chapter.dateFetch,
                         chapter.dateUpload,
                         chapter.version,
+                        // KMK -->
+                        chapter.customSortOrder,
+                        chapter.excluded,
+                        // KMK <--
                     )
                     val lastInsertId = chaptersQueries.selectLastInsertedRowId().executeAsOne()
                     chapter.copy(id = lastInsertId)
@@ -68,6 +72,10 @@ class ChapterRepositoryImpl(
                     chapterId = chapterUpdate.id,
                     version = chapterUpdate.version,
                     isSyncing = 0,
+                    // KMK -->
+                    customSortOrder = chapterUpdate.customSortOrder,
+                    excluded = chapterUpdate.excluded,
+                    // KMK <--
                 )
             }
         }

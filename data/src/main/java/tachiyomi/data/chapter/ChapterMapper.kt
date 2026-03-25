@@ -20,6 +20,10 @@ object ChapterMapper {
         version: Long,
         @Suppress("UNUSED_PARAMETER")
         isSyncing: Long,
+        // KMK -->
+        customSortOrder: Long?,
+        excluded: Boolean,
+        // KMK <--
     ): Chapter = Chapter(
         id = id,
         mangaId = mangaId,
@@ -35,5 +39,9 @@ object ChapterMapper {
         scanlator = scanlator,
         lastModifiedAt = lastModifiedAt,
         version = version,
+        // KMK -->
+        customSortOrder = customSortOrder,
+        excluded = excluded,
+        // KMK <--
     )
 }

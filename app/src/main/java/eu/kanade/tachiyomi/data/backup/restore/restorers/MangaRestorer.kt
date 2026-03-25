@@ -214,6 +214,8 @@ class MangaRestorer(
                 // KMK -->
                 sourceOrder = max(chapter.sourceOrder, dbChapter.sourceOrder),
                 dateUpload = min(chapter.dateUpload, dbChapter.dateUpload),
+                customSortOrder = chapter.customSortOrder ?: dbChapter.customSortOrder,
+                excluded = chapter.excluded,
                 // KMK <--
             )
         } else {
@@ -224,6 +226,8 @@ class MangaRestorer(
                     bookmark = chapter.bookmark || dbChapter.bookmark,
                     sourceOrder = max(chapter.sourceOrder, dbChapter.sourceOrder),
                     dateUpload = min(chapter.dateUpload, dbChapter.dateUpload),
+                    customSortOrder = chapter.customSortOrder ?: dbChapter.customSortOrder,
+                    excluded = chapter.excluded,
                 )
                 // KMK <--
                 .let {
@@ -246,6 +250,7 @@ class MangaRestorer(
             // KMK -->
             // dateUpload = 0L, some time source loses dateUpload so we overwrite with backup
             // sourceOrder = 0L, although sourceOrder will be updated on refresh, we want to avoid order mixed up anyway
+            customSortOrder = null, // exclude custom order from comparison to avoid spurious updates
             // KMK <--
             lastModifiedAt = 0L,
             version = 0L,
@@ -267,6 +272,10 @@ class MangaRestorer(
                     chapter.dateFetch,
                     chapter.dateUpload,
                     chapter.version,
+                    // KMK -->
+                    chapter.customSortOrder,
+                    chapter.excluded,
+                    // KMK <--
                 )
             }
         }
@@ -288,6 +297,8 @@ class MangaRestorer(
                     // KMK -->
                     sourceOrder = chapter.sourceOrder,
                     dateUpload = chapter.dateUpload,
+                    customSortOrder = chapter.customSortOrder,
+                    excluded = chapter.excluded,
                     // KMK <--
                     chapterId = chapter.id,
                     version = chapter.version,

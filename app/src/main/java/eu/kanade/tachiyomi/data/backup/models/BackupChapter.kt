@@ -22,6 +22,10 @@ data class BackupChapter(
     @ProtoNumber(10) var sourceOrder: Long = 0,
     @ProtoNumber(11) var lastModifiedAt: Long = 0,
     @ProtoNumber(12) var version: Long = 0,
+    // KMK -->
+    @ProtoNumber(13) var customSortOrder: Long = -1,
+    @ProtoNumber(14) var excluded: Boolean = false,
+    // KMK <--
 ) {
     fun toChapterImpl(): Chapter {
         return Chapter.create().copy(
@@ -37,6 +41,10 @@ data class BackupChapter(
             sourceOrder = this@BackupChapter.sourceOrder,
             lastModifiedAt = this@BackupChapter.lastModifiedAt,
             version = this@BackupChapter.version,
+            // KMK -->
+            customSortOrder = this@BackupChapter.customSortOrder.takeIf { it >= 0 },
+            excluded = this@BackupChapter.excluded,
+            // KMK <--
         )
     }
 }
@@ -57,6 +65,10 @@ val backupChapterMapper = {
         lastModifiedAt: Long,
         version: Long,
         _: Long,
+        // KMK -->
+        customSortOrder: Long?,
+        excluded: Boolean,
+        // KMK <--
     ->
     BackupChapter(
         url = url,
@@ -71,5 +83,9 @@ val backupChapterMapper = {
         sourceOrder = sourceOrder,
         lastModifiedAt = lastModifiedAt,
         version = version,
+        // KMK -->
+        customSortOrder = customSortOrder ?: -1L,
+        excluded = excluded,
+        // KMK <--
     )
 }

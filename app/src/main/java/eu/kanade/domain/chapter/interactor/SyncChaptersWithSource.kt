@@ -7,6 +7,7 @@ import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
+import eu.kanade.tachiyomi.data.download.Downloader
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -17,6 +18,7 @@ import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.NoChaptersException
+import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.model.toChapterUpdate
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.chapter.service.ChapterRecognition
@@ -74,6 +76,9 @@ class SyncChaptersWithSource(
 
         val newChapters = mutableListOf<Chapter>()
         val updatedChapters = mutableListOf<Chapter>()
+        // KMK -->
+        val orphanedToRemove = mutableListOf<Long>()
+        // KMK <--
         val removedChapters = dbChapters.filterNot { dbChapter ->
             sourceChapters.any { sourceChapter ->
                 dbChapter.url == sourceChapter.url
@@ -105,6 +110,23 @@ class SyncChaptersWithSource(
             val dbChapter = dbChapters.find { it.url == chapter.url }
 
             if (dbChapter == null) {
+                // KMK -->
+                // Check if an orphaned chapter matches this source chapter by chapter number
+                val orphanedMatch = dbChapters.find {
+                    it.url.startsWith("orphaned://") &&
+                        chapter.isRecognizedNumber &&
+                        it.chapterNumber == chapter.chapterNumber
+                }
+                if (orphanedMatch != null) {
+                    chapter = chapter.copy(
+                        read = orphanedMatch.read,
+                        bookmark = orphanedMatch.bookmark,
+                        lastPageRead = orphanedMatch.lastPageRead,
+                        dateFetch = orphanedMatch.dateFetch,
+                    )
+                    orphanedToRemove.add(orphanedMatch.id)
+                }
+                // KMK <--
                 val toAddChapter = if (chapter.dateUpload == 0L) {
                     val altDateUpload = if (maxSeenUploadDate == 0L) nowMillis else maxSeenUploadDate
                     chapter.copy(dateUpload = altDateUpload)
@@ -229,13 +251,58 @@ class SyncChaptersWithSource(
         // <-- EXH
 
         if (removedChapters.isNotEmpty()) {
-            val toDeleteIds = removedChapters.map { it.id }
-            chapterRepository.removeChaptersWithIds(toDeleteIds)
+            val (downloadedRemovedChapters, notDownloadedRemovedChapters) = removedChapters.partition { chapter ->
+                downloadManager.isChapterDownloaded(
+                    chapterName = chapter.name,
+                    chapterScanlator = chapter.scanlator,
+                    chapterUrl = chapter.url,
+                    mangaTitle = manga.ogTitle,
+                    sourceId = manga.source,
+                )
+            }
+
+            // Only delete chapters that are NOT downloaded
+            if (notDownloadedRemovedChapters.isNotEmpty()) {
+                val toDeleteIds = notDownloadedRemovedChapters.map { it.id }
+                chapterRepository.removeChaptersWithIds(toDeleteIds)
+            }
         }
+
+        // KMK -->
+        // Remove orphaned chapters that are now replaced by real source chapters
+        if (orphanedToRemove.isNotEmpty()) {
+            chapterRepository.removeChaptersWithIds(orphanedToRemove)
+        }
+        // KMK <--
 
         if (updatedToAdd.isNotEmpty()) {
             updatedToAdd = chapterRepository.addAll(updatedToAdd)
         }
+
+        // KMK -->
+        // Place newly fetched chapters at the top when custom sort order is active
+        if (updatedToAdd.isNotEmpty() && manga.sorting == Manga.CHAPTER_SORTING_CUSTOM) {
+            val existingWithCustomOrder = dbChapters.filter { it.customSortOrder != null }
+            if (existingWithCustomOrder.isNotEmpty()) {
+                val newCount = updatedToAdd.size
+                // Shift existing chapters down
+                val shiftUpdates = existingWithCustomOrder.map { chapter ->
+                    ChapterUpdate(
+                        id = chapter.id,
+                        customSortOrder = chapter.customSortOrder!! + newCount,
+                    )
+                }
+                // Assign new chapters to top positions (0, 1, 2, ...)
+                val newChapterUpdates = updatedToAdd.mapIndexed { index, chapter ->
+                    ChapterUpdate(
+                        id = chapter.id,
+                        customSortOrder = index.toLong(),
+                    )
+                }
+                updateChapter.awaitAll(shiftUpdates + newChapterUpdates)
+            }
+        }
+        // KMK <--
 
         if (updatedChapters.isNotEmpty()) {
             val chapterUpdates = updatedChapters.map { it.toChapterUpdate() }
@@ -246,6 +313,47 @@ class SyncChaptersWithSource(
         // Set this manga as updated since chapters were changed
         // Note that last_update actually represents last time the chapter list changed at all
         updateManga.awaitUpdateLastUpdate(manga.id)
+
+        // Scan download folder for orphaned chapters (exist on disk, missing from DB)
+        if (!source.isLocal()) {
+            val mangaDir = downloadProvider.findMangaDir(manga.ogTitle, source)
+            if (mangaDir != null) {
+                val allKnownChapters = dbChapters + updatedToAdd
+                val knownFolderNames = allKnownChapters.flatMap { chapter ->
+                    downloadProvider.getValidChapterDirNames(chapter.name, chapter.scanlator, chapter.url)
+                }.toHashSet()
+
+                val orphanedChapters = mangaDir.listFiles().orEmpty()
+                    .filter { file ->
+                        val fileName = file.name ?: return@filter false
+                        (file.isDirectory || fileName.endsWith(".cbz")) &&
+                            fileName !in knownFolderNames &&
+                            !fileName.endsWith(Downloader.TMP_DIR_SUFFIX)
+                    }
+                    .map { dir ->
+                        val fileName = dir.name ?: ""
+                        val chapterName = if (fileName.endsWith(".cbz")) fileName.dropLast(4) else fileName
+                        val chapterNumber = ChapterRecognition.parseChapterNumber(
+                            manga.title,
+                            chapterName,
+                            -1.0,
+                        )
+                        Chapter.create().copy(
+                            mangaId = manga.id,
+                            url = "orphaned://$chapterName",
+                            name = chapterName,
+                            chapterNumber = chapterNumber,
+                            sourceOrder = -1L,
+                            dateFetch = dir.lastModified(),
+                            dateUpload = 0L,
+                        )
+                    }
+
+                if (orphanedChapters.isNotEmpty()) {
+                    chapterRepository.addAll(orphanedChapters)
+                }
+            }
+        }
 
         val excludedScanlators = getExcludedScanlators.await(manga.id).toHashSet()
 

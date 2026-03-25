@@ -28,6 +28,20 @@ fun getChapterSort(
             true -> { c1, c2 -> c2.name.compareToWithCollator(c1.name) }
             false -> { c1, c2 -> c1.name.compareToWithCollator(c2.name) }
         }
+        // KMK -->
+        Manga.CHAPTER_SORTING_CUSTOM -> when (sortDescending) {
+            true -> { c1, c2 ->
+                val o1 = c1.customSortOrder ?: Long.MAX_VALUE
+                val o2 = c2.customSortOrder ?: Long.MAX_VALUE
+                if (o1 != o2) o1.compareTo(o2) else c1.sourceOrder.compareTo(c2.sourceOrder)
+            }
+            false -> { c1, c2 ->
+                val o1 = c1.customSortOrder ?: Long.MAX_VALUE
+                val o2 = c2.customSortOrder ?: Long.MAX_VALUE
+                if (o1 != o2) o2.compareTo(o1) else c2.sourceOrder.compareTo(c1.sourceOrder)
+            }
+        }
+        // KMK <--
         else -> throw NotImplementedError("Invalid chapter sorting method: ${manga.sorting}")
     }
 }

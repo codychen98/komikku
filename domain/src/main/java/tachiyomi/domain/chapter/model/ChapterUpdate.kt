@@ -14,6 +14,10 @@ data class ChapterUpdate(
     val chapterNumber: Double? = null,
     val scanlator: String? = null,
     val version: Long? = null,
+    // KMK -->
+    val customSortOrder: Long? = null,
+    val excluded: Boolean? = null,
+    // KMK <--
 )
 
 fun Chapter.toChapterUpdate(): ChapterUpdate {
@@ -31,5 +35,9 @@ fun Chapter.toChapterUpdate(): ChapterUpdate {
         chapterNumber,
         scanlator,
         version,
+        // KMK -->
+        customSortOrder,
+        excluded,
+        // KMK <--
     )
 }

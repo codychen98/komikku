@@ -417,6 +417,16 @@
         <activity
             android:name="com.journeyapps.barcodescanner.CaptureActivity"
             tools:remove="screenOrientation" />
+
+        <!-- KMK -->
+        <receiver
+            android:name=".data.backup.BackupBroadcastReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="app.komikku.CREATE_BACKUP" />
+            </intent-filter>
+        </receiver>
+        <!-- KMK <-->
     </application>
 
 </manifest>

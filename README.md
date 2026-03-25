@@ -45,3 +45,9 @@ With a custom output path in Macrodroid using shell script in root mode:
 ```
 am broadcast -a app.komikku.CREATE_BACKUP -n app.komikku/eu.kanade.tachiyomi.data.backup.BackupBroadcastReceiver --es export_path "/storage/emulated/0/Download/Sync Folder/PCloud Sync/Backup"
 ```
+
+## To use this fork while keeping your data (rooted device only)
+1. You can backup your app data using Neo Backup
+2. Uninstall the original app
+3. Install the new app
+4. Restore just the app data

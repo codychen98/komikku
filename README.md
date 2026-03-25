@@ -1,4 +1,4 @@
-## Disclaimer
+# Disclaimer
 
 This is a personal, unofficial fork provided as-is. I am not responsible for any data loss, device issues, or other problems that may occur from using this software. Use at your own risk.
 

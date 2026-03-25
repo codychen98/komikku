@@ -1,3 +1,7 @@
+## Disclaimer
+
+This is a personal, unofficial fork provided as-is. I am not responsible for any data loss, device issues, or other problems that may occur from using this software. Use at your own risk.
+
 # Komikku (Custom Fork)
 
 A personal fork of [Komikku](https://github.com/komikku-app/komikku) with additional features.

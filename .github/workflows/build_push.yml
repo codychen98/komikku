@@ -2,15 +2,10 @@ name: CI
 on:
   push:
     branches:
-      # - develop
       - master
     paths:
       - '**'
       - '!**.md'
-  # pull_request:
-  #   paths-ignore:
-  #     - '**.md'
-  # Dispatch or Manual triggers
   workflow_dispatch:
 
 concurrency:
@@ -60,7 +55,7 @@ jobs:
       - name: Build release APK
         run: ./gradlew assembleRelease
 
-      - name: Upload APKs
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: komikku-release

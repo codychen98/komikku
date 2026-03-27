@@ -22,3 +22,5 @@ keystore.properties
 /app/google-services.json
 *.jks
 app/standard/preview/*
+
+/roadmap

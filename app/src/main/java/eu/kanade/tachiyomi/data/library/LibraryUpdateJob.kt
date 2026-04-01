@@ -308,6 +308,9 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         }
 
         val restrictions = libraryPreferences.autoUpdateMangaRestrictions().get()
+        // KMK -->
+        val excludedSourceNames = libraryPreferences.updateSourcesExclude().get()
+        // KMK <--
         val skippedUpdates = mutableListOf<Pair<Manga, String?>>()
         val (_, fetchWindowUpperBound) = fetchInterval.getWindow(ZonedDateTime.now())
 
@@ -315,6 +318,16 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             // SY -->
             .distinctBy { it.manga.id }
             // SY <--
+            // KMK -->
+            .filter { libraryManga ->
+                if (excludedSourceNames.isEmpty()) {
+                    true
+                } else {
+                    val sourceName = sourceManager.getOrStub(libraryManga.manga.source).name
+                    sourceName !in excludedSourceNames
+                }
+            }
+            // KMK <--
             .filter {
                 when {
                     it.manga.updateStrategy == UpdateStrategy.ONLY_FETCH_ONCE && it.totalChapters > 0L -> {

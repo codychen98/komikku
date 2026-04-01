@@ -248,6 +248,8 @@
     <string name="action_reset_custom_order">Reset custom order</string>
     <string name="dialog_reset_custom_order_title">Reset custom order?</string>
     <string name="dialog_reset_custom_order_body">This will clear your saved chapter order. Chapters will return to their source order.</string>
+    <!-- KMK: Excluded sources from library update -->
+    <string name="pref_excluded_sources">Excluded sources</string>
     <!-- KMK: Chapter exclusion -->
     <string name="action_remove_chapter">Remove</string>
     <string name="action_restore_chapter">Restore</string>

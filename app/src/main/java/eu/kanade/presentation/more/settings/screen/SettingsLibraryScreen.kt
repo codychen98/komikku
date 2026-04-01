@@ -26,6 +26,9 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.launch
 import tachiyomi.domain.category.interactor.GetCategories
+// KMK -->
+import tachiyomi.domain.source.repository.SourceRepository
+// KMK <--
 import tachiyomi.domain.category.interactor.ResetCategoryFlags
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.GroupLibraryMode
@@ -127,6 +130,20 @@ object SettingsLibraryScreen : SearchableSettings {
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
 
+        // KMK -->
+        val sourceRepository = remember { Injekt.get<SourceRepository>() }
+        val sourcesWithCount by sourceRepository.getSourcesWithFavoriteCount()
+            .collectAsState(initial = emptyList())
+        val groupedSourceEntries = remember(sourcesWithCount) {
+            sourcesWithCount
+                .map { it.first.name }
+                .distinct()
+                .sorted()
+                .associateWith { it }
+                .toImmutableMap()
+        }
+        // KMK <--
+
         val autoUpdateIntervalPref = libraryPreferences.autoUpdateInterval()
         val autoUpdateCategoriesPref = libraryPreferences.updateCategories()
         val autoUpdateCategoriesExcludePref = libraryPreferences.updateCategoriesExclude()
@@ -197,6 +214,14 @@ object SettingsLibraryScreen : SearchableSettings {
                     ),
                     onClick = { showCategoriesDialog = true },
                 ),
+                // KMK -->
+                Preference.PreferenceItem.MultiSelectListPreference(
+                    preference = libraryPreferences.updateSourcesExclude(),
+                    entries = groupedSourceEntries,
+                    title = stringResource(KMR.strings.pref_excluded_sources),
+                    subtitle = stringResource(MR.strings.exclude, "%s"),
+                ),
+                // KMK <--
                 // SY -->
                 Preference.PreferenceItem.ListPreference(
                     preference = libraryPreferences.groupLibraryUpdateType(),

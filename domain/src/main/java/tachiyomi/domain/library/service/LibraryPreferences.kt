@@ -180,6 +180,13 @@ class LibraryPreferences(
 
     fun updateCategoriesExclude() = preferenceStore.getStringSet(LIBRARY_UPDATE_CATEGORIES_EXCLUDE_PREF_KEY, emptySet())
 
+    // KMK -->
+    fun updateSourcesExclude() = preferenceStore.getStringSet(
+        LIBRARY_UPDATE_SOURCES_EXCLUDE_PREF_KEY,
+        emptySet(),
+    )
+    // KMK <--
+
     // endregion
 
     // region Chapter
@@ -286,6 +293,9 @@ class LibraryPreferences(
         const val DEFAULT_CATEGORY_PREF_KEY = "default_category"
         private const val LIBRARY_UPDATE_CATEGORIES_PREF_KEY = "library_update_categories"
         private const val LIBRARY_UPDATE_CATEGORIES_EXCLUDE_PREF_KEY = "library_update_categories_exclude"
+        // KMK -->
+        private const val LIBRARY_UPDATE_SOURCES_EXCLUDE_PREF_KEY = "library_update_sources_exclude"
+        // KMK <--
 
         // KMK -->
         private const val FILTER_LIBRARY_CATEGORIES_INCLUDE_PREF_KEY = "pref_filter_library_categories_include"

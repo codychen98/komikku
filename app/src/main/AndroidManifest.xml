@@ -426,6 +426,13 @@
                 <action android:name="app.komikku.CREATE_BACKUP" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name=".data.cache.ClearCacheBroadcastReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="app.komikku.CLEAR_CACHE" />
+            </intent-filter>
+        </receiver>
         <!-- KMK <-->
     </application>
 

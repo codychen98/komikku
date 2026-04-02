@@ -326,6 +326,9 @@ class ReaderViewModel @JvmOverloads constructor(
         }
 
         chaptersForReader
+            // KMK -->
+            .filterNot { it.excluded }
+            // KMK <--
             .sortedWith(getChapterSort(manga, sortDescending = false))
             .run {
                 if (readerPreferences.skipDupe().get()) {

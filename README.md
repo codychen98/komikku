@@ -9,10 +9,13 @@ A personal fork of [Komikku](https://github.com/komikku-app/komikku) with additi
 ## Fork Features
 
 1. **Custom Chapter Order** — Manually reorder chapters in any order using drag-and-drop.
-2. **Chapter Exclusion** — Permanently hide specific chapters from the list without deleting downloads.
+2. **Chapter Exclusion** — Permanently hide specific chapters from the list.
 3. **Orphaned Chapter Restoration** — Restore chapters that were downloaded locally but removed from the manga site.
 4. **Backup via Intent** — Trigger backups programmatically via ADB or automation tools like Tasker/Macrodroid, tested on rooted device.
-5. **Hitomi filtering Fix** — Fixed QuerySanitizer that broke Hitomi filtering
+5. **Hitomi filtering Fix** — Fixed QuerySanitizer that broke Hitomi filtering.
+6. **Ignore Duplicated Chapters (Reworked)** — Enhanced the existing duplicate chapter detection to automatically skip sub-chapters (e.g., 3.1, 3.2) when a parent chapter (e.g., 3.0) exists during reader navigation.
+7. **Exclude Sources from Library Update** — Prevent specific manga sources from being updated during library refresh.
+8. **Clear Cache via Intent** — Clear app caches and database in one operation via broadcast intent for automation.
 
 ---
 
@@ -49,6 +52,34 @@ With a custom output path in Macrodroid using shell script in root mode:
 ```
 am broadcast -a app.komikku.CREATE_BACKUP -n app.komikku/eu.kanade.tachiyomi.data.backup.BackupBroadcastReceiver --es export_path "/storage/emulated/0/Download/Sync Folder/PCloud Sync/Backup"
 ```
+
+### 5. Ignore Duplicated Chapters (Reworked)
+
+The original app had a **Skip duplicate chapters** setting, but it didn't work well with sub-chapters. This rework improves it:
+
+1. Go to **Settings → Reader**.
+2. Enable **Skip duplicate chapters**.
+3. When reading, the reader will now automatically skip sub-chapters (e.g., 3.1, 3.2, 3.3) if a parent chapter (e.g., 3.0) exists during navigation.
+4. The chapters still remain in your chapter list, but the reader's next/previous buttons will skip over them.
+5. This is useful for sources like MangaFire that duplicate content across sub-chapters.
+
+### 6. Exclude Sources from Library Update
+
+1. Go to **Settings → Library**.
+2. Tap **Excluded sources**.
+3. Check the sources you want to exclude from automatic library updates.
+4. Multi-language variants (e.g., MangaDex English/Chinese) are grouped as one source.
+5. Excluded sources won't update during global library refresh, but can still be updated manually.
+
+### 7. Clear Cache via Intent
+
+Clear all caches in one operation using ADB or automation tools:
+
+```
+am broadcast -a app.komikku.CLEAR_CACHE -n app.komikku/eu.kanade.tachiyomi.data.cache.ClearCacheBroadcastReceiver
+```
+
+This clears: non-library manga from database, chapter cache, and page preview cache.
 
 ## To use this fork while keeping your data (rooted device only)
 1. You can backup your app data using Neo Backup

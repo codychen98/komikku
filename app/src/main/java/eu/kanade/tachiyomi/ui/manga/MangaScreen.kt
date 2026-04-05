@@ -547,7 +547,6 @@ class MangaScreen(
                 onResetCustomOrder = screenModel::resetCustomSortOrder,
                 showExcludedChapters = successState.manga.showExcludedChapters,
                 onToggleShowExcluded = screenModel::toggleShowExcludedChapters,
-                onToggleSkipSubChapterDuplicates = screenModel::toggleSkipSubChapterDuplicates,
                 // KMK <--
             )
             MangaScreenModel.Dialog.TrackSheet -> {

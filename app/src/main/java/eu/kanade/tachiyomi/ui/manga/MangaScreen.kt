@@ -400,6 +400,7 @@ class MangaScreen(
             onMultiRemoveClicked = screenModel::excludeChapters,
             onMultiRestoreClicked = screenModel::restoreChapters,
             onToggleShowExcluded = screenModel::toggleShowExcludedChapters,
+            onToggleSkipSubChapterDuplicates = screenModel::toggleSkipSubChapterDuplicates,
             // KMK <--
             onChapterSwipe = screenModel::chapterSwipe,
             onChapterSelected = screenModel::toggleSelection,
@@ -546,6 +547,7 @@ class MangaScreen(
                 onResetCustomOrder = screenModel::resetCustomSortOrder,
                 showExcludedChapters = successState.manga.showExcludedChapters,
                 onToggleShowExcluded = screenModel::toggleShowExcludedChapters,
+                onToggleSkipSubChapterDuplicates = screenModel::toggleSkipSubChapterDuplicates,
                 // KMK <--
             )
             MangaScreenModel.Dialog.TrackSheet -> {

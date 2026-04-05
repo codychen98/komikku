@@ -255,4 +255,6 @@
     <string name="action_restore_chapter">Restore</string>
     <string name="show_excluded_chapters">Show removed chapters</string>
     <string name="excluded_chapter_badge">REMOVED</string>
+    <!-- KMK: Sub-chapter dedup -->
+    <string name="action_skip_sub_chapter_duplicates">Skip sub-chapter duplicates</string>
 </resources>

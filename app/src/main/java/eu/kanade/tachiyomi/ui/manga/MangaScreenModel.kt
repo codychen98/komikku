@@ -69,6 +69,10 @@ import eu.kanade.tachiyomi.ui.manga.RelatedManga.Companion.removeDuplicates
 import eu.kanade.tachiyomi.ui.manga.RelatedManga.Companion.sorted
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
+// KMK -->
+import eu.kanade.tachiyomi.util.chapter.removeDuplicates as removeDuplicateChapters
+import eu.kanade.tachiyomi.util.chapter.removeSubChapterDuplicates
+// KMK <--
 import eu.kanade.tachiyomi.util.removeCovers
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.toast
@@ -269,6 +273,9 @@ class MangaScreenModel(
     private var autoTrackState = trackPreferences.autoUpdateTrackOnMarkRead().get()
 
     private val skipFiltered by readerPreferences.skipFiltered().asState(screenModelScope)
+    // KMK -->
+    private val skipDupe by readerPreferences.skipDupe().asState(screenModelScope)
+    // KMK <--
 
     val isUpdateIntervalEnabled =
         LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in libraryPreferences.autoUpdateMangaRestrictions().get()
@@ -501,6 +508,9 @@ class MangaScreenModel(
                     readerPreferences.preserveReadingPosition().get() && manga.isEhBasedManga(),
                     previewsRowCount = uiPreferences.previewsRowCount().get(),
                     // SY <--
+                    // KMK -->
+                    skipDupeEnabled = readerPreferences.skipDupe().get(),
+                    // KMK <--
                 )
             }
 
@@ -1480,17 +1490,30 @@ class MangaScreenModel(
      * @param chapters the list of chapters to download.
      */
     private fun downloadChapters(chapters: List<Chapter>) {
-        // SY -->
+        // KMK -->
         val state = successState ?: return
+        val dedupedChapters = if (skipDupe) {
+            chapters.removeDuplicateChapters().let {
+                if (state.manga.skipSubChapterDuplicates) {
+                    it.removeSubChapterDuplicates()
+                } else {
+                    it
+                }
+            }
+        } else {
+            chapters
+        }
+        // KMK <--
+        // SY -->
         if (state.source is MergedSource) {
-            chapters.groupBy { it.mangaId }.forEach { map ->
+            dedupedChapters.groupBy { it.mangaId }.forEach { map ->
                 val manga = state.mergedData?.manga?.get(map.key) ?: return@forEach
                 downloadManager.downloadChapters(manga, map.value)
             }
         } else {
             // SY <--
             val manga = state.manga
-            downloadManager.downloadChapters(manga, chapters)
+            downloadManager.downloadChapters(manga, dedupedChapters)
         }
         toggleAllSelection(false)
     }
@@ -1582,6 +1605,18 @@ class MangaScreenModel(
             setMangaChapterFlags.awaitSetShowExcluded(manga, !manga.showExcludedChapters)
         }
     }
+
+    // KMK -->
+    fun toggleSkipSubChapterDuplicates() {
+        val manga = successState?.manga ?: return
+        screenModelScope.launchNonCancellable {
+            setMangaChapterFlags.awaitSetSkipSubChapterDuplicates(
+                manga,
+                !manga.skipSubChapterDuplicates,
+            )
+        }
+    }
+    // KMK <--
 
     fun clearManga(
         deleteDownload: Boolean,
@@ -2161,6 +2196,7 @@ class MangaScreenModel(
             val relatedMangaCollection: List<RelatedManga>? = null,
             val seedColor: Color? = manga.asMangaCover().vibrantCoverColor?.let { Color(it) },
             val isReorderModeActive: Boolean = false,
+            val skipDupeEnabled: Boolean = false,
             // KMK <--
         ) : State {
             // KMK -->

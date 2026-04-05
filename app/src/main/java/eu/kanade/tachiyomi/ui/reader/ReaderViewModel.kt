@@ -46,6 +46,9 @@ import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.util.chapter.filterDownloaded
 import eu.kanade.tachiyomi.util.chapter.removeDuplicates
+// KMK -->
+import eu.kanade.tachiyomi.util.chapter.removeSubChapterDuplicates
+// KMK <--
 import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.lang.byteSize
 import eu.kanade.tachiyomi.util.storage.DiskUtil
@@ -337,6 +340,15 @@ class ReaderViewModel @JvmOverloads constructor(
                     this
                 }
             }
+            // KMK -->
+            .run {
+                if (readerPreferences.skipDupe().get() && manga.skipSubChapterDuplicates) {
+                    removeSubChapterDuplicates(selectedChapter)
+                } else {
+                    this
+                }
+            }
+            // KMK <--
             .run {
                 if (basePreferences.downloadedOnly().get()) {
                     filterDownloaded(manga, mangaMap)
@@ -738,7 +750,17 @@ class ReaderViewModel @JvmOverloads constructor(
                 } else {
                     this
                 }
-            }.take(downloadAheadAmount)
+            }
+            // KMK -->
+            .run {
+                if (readerPreferences.skipDupe().get() && manga.skipSubChapterDuplicates) {
+                    removeSubChapterDuplicates(nextChapter.toDomainChapter()!!)
+                } else {
+                    this
+                }
+            }
+            // KMK <--
+            .take(downloadAheadAmount)
 
             // KMK -->
             chaptersToDownload.groupBy { it.mangaId }.forEach { (mangaId, chapters) ->

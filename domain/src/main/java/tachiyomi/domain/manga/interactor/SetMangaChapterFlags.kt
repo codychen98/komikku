@@ -105,6 +105,20 @@ class SetMangaChapterFlags(
             ),
         )
     }
+
+    suspend fun awaitSetSkipSubChapterDuplicates(manga: Manga, skip: Boolean): Boolean {
+        val newFlags = if (skip) {
+            manga.chapterFlags or Manga.CHAPTER_SKIP_SUB_DUPE
+        } else {
+            manga.chapterFlags and Manga.CHAPTER_SKIP_SUB_DUPE.inv()
+        }
+        return mangaRepository.update(
+            MangaUpdate(
+                id = manga.id,
+                chapterFlags = newFlags,
+            ),
+        )
+    }
     // KMK <--
 
     private fun Long.setFlag(flag: Long, mask: Long): Long {

@@ -31,6 +31,9 @@ enum class MangaScreenItem {
 
     // SY <--
     CHAPTER_HEADER,
+    // KMK -->
+    SUB_CHAPTER_FILTER,
+    // KMK <--
     CHAPTER,
 
     // KMK -->

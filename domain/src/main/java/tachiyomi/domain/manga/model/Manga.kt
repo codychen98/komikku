@@ -111,6 +111,9 @@ data class Manga(
     // KMK -->
     val showExcludedChapters: Boolean
         get() = chapterFlags and CHAPTER_SHOW_EXCLUDED != 0L
+
+    val skipSubChapterDuplicates: Boolean
+        get() = chapterFlags and CHAPTER_SKIP_SUB_DUPE != 0L
     // KMK <--
 
     companion object {
@@ -144,6 +147,7 @@ data class Manga(
 
         // KMK -->
         const val CHAPTER_SHOW_EXCLUDED = 0x00008000L
+        const val CHAPTER_SKIP_SUB_DUPE = 0x00010000L
         // KMK <--
 
         const val CHAPTER_DISPLAY_NAME = 0x00000000L

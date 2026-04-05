@@ -37,12 +37,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+// KMK -->
+import androidx.compose.material.icons.filled.Check
+// KMK <--
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.VerticalAlignTop
 import androidx.compose.material3.Button
+// KMK -->
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+// KMK <--
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -217,6 +224,7 @@ fun MangaScreen(
     onMultiRemoveClicked: (List<ChapterList.Item>) -> Unit = {},
     onMultiRestoreClicked: (List<ChapterList.Item>) -> Unit = {},
     onToggleShowExcluded: () -> Unit = {},
+    onToggleSkipSubChapterDuplicates: () -> Unit = {},
     // KMK <--
 
     // For chapter swipe
@@ -302,6 +310,7 @@ fun MangaScreen(
             onMultiRemoveClicked = onMultiRemoveClicked,
             onMultiRestoreClicked = onMultiRestoreClicked,
             onToggleShowExcluded = onToggleShowExcluded,
+            onToggleSkipSubChapterDuplicates = onToggleSkipSubChapterDuplicates,
             // KMK <--
             onChapterSwipe = onChapterSwipe,
             onChapterSelected = onChapterSelected,
@@ -375,6 +384,7 @@ fun MangaScreen(
             onMultiRemoveClicked = onMultiRemoveClicked,
             onMultiRestoreClicked = onMultiRestoreClicked,
             onToggleShowExcluded = onToggleShowExcluded,
+            onToggleSkipSubChapterDuplicates = onToggleSkipSubChapterDuplicates,
             // KMK <--
             onChapterSwipe = onChapterSwipe,
             onChapterSelected = onChapterSelected,
@@ -460,6 +470,7 @@ private fun MangaScreenSmallImpl(
     onMultiRemoveClicked: (List<ChapterList.Item>) -> Unit = {},
     onMultiRestoreClicked: (List<ChapterList.Item>) -> Unit = {},
     onToggleShowExcluded: () -> Unit = {},
+    onToggleSkipSubChapterDuplicates: () -> Unit = {},
     // KMK <--
 
     // For chapter swipe
@@ -985,6 +996,33 @@ private fun MangaScreenSmallImpl(
                         )
                     }
 
+                    // KMK -->
+                    if (state.skipDupeEnabled) {
+                        item(
+                            key = MangaScreenItem.SUB_CHAPTER_FILTER,
+                            contentType = MangaScreenItem.SUB_CHAPTER_FILTER,
+                        ) {
+                            FilterChip(
+                                selected = state.manga.skipSubChapterDuplicates,
+                                onClick = onToggleSkipSubChapterDuplicates,
+                                label = { Text(stringResource(KMR.strings.action_skip_sub_chapter_duplicates)) },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                leadingIcon = if (state.manga.skipSubChapterDuplicates) {
+                                    {
+                                        Icon(
+                                            Icons.Filled.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                        )
+                                    }
+                                } else {
+                                    null
+                                },
+                            )
+                        }
+                    }
+                    // KMK <--
+
                     sharedChapterItems(
                         manga = state.manga,
                         mergedData = state.mergedData,
@@ -1064,6 +1102,7 @@ private fun MangaScreenLargeImpl(
     onMultiRemoveClicked: (List<ChapterList.Item>) -> Unit = {},
     onMultiRestoreClicked: (List<ChapterList.Item>) -> Unit = {},
     onToggleShowExcluded: () -> Unit = {},
+    onToggleSkipSubChapterDuplicates: () -> Unit = {},
     // KMK <--
 
     // For swipe actions
@@ -1566,6 +1605,33 @@ private fun MangaScreenLargeImpl(
                                     // KMK <--
                                 )
                             }
+
+                            // KMK -->
+                            if (state.skipDupeEnabled) {
+                                item(
+                                    key = MangaScreenItem.SUB_CHAPTER_FILTER,
+                                    contentType = MangaScreenItem.SUB_CHAPTER_FILTER,
+                                ) {
+                                    FilterChip(
+                                        selected = state.manga.skipSubChapterDuplicates,
+                                        onClick = onToggleSkipSubChapterDuplicates,
+                                        label = { Text(stringResource(KMR.strings.action_skip_sub_chapter_duplicates)) },
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                        leadingIcon = if (state.manga.skipSubChapterDuplicates) {
+                                            {
+                                                Icon(
+                                                    Icons.Filled.Check,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                                )
+                                            }
+                                        } else {
+                                            null
+                                        },
+                                    )
+                                }
+                            }
+                            // KMK <--
 
                             sharedChapterItems(
                                 manga = state.manga,

@@ -28,6 +28,7 @@ import tachiyomi.source.local.isLocal
 import java.lang.Long.max
 import java.time.ZonedDateTime
 import java.util.TreeSet
+import kotlin.math.abs
 
 class SyncChaptersWithSource(
     private val downloadManager: DownloadManager,
@@ -76,10 +77,8 @@ class SyncChaptersWithSource(
 
         val newChapters = mutableListOf<Chapter>()
         val updatedChapters = mutableListOf<Chapter>()
-        // KMK -->
-        val orphanedToRemove = mutableListOf<Long>()
-        // KMK <--
-        val removedChapters = dbChapters.filterNot { dbChapter ->
+        val reconciledDbChapterIdsToRemove = mutableSetOf<Long>()
+        val removedByUrlChapters = dbChapters.filterNot { dbChapter ->
             sourceChapters.any { sourceChapter ->
                 dbChapter.url == sourceChapter.url
             }
@@ -110,23 +109,20 @@ class SyncChaptersWithSource(
             val dbChapter = dbChapters.find { it.url == chapter.url }
 
             if (dbChapter == null) {
-                // KMK -->
-                // Check if an orphaned chapter matches this source chapter by chapter number
-                val orphanedMatch = dbChapters.find {
-                    it.url.startsWith("orphaned://") &&
-                        chapter.isRecognizedNumber &&
-                        it.chapterNumber == chapter.chapterNumber
+                // Reconcile against a previously retained chapter before inserting a new row.
+                val reconciledMatch = removedByUrlChapters.find { candidate ->
+                    candidate.id !in reconciledDbChapterIdsToRemove &&
+                        isReconciliationCandidateMatch(candidate, chapter, manga)
                 }
-                if (orphanedMatch != null) {
+                if (reconciledMatch != null) {
                     chapter = chapter.copy(
-                        read = orphanedMatch.read,
-                        bookmark = orphanedMatch.bookmark,
-                        lastPageRead = orphanedMatch.lastPageRead,
-                        dateFetch = orphanedMatch.dateFetch,
+                        read = reconciledMatch.read,
+                        bookmark = reconciledMatch.bookmark,
+                        lastPageRead = reconciledMatch.lastPageRead,
+                        dateFetch = reconciledMatch.dateFetch,
                     )
-                    orphanedToRemove.add(orphanedMatch.id)
+                    reconciledDbChapterIdsToRemove.add(reconciledMatch.id)
                 }
-                // KMK <--
                 val toAddChapter = if (chapter.dateUpload == 0L) {
                     val altDateUpload = if (maxSeenUploadDate == 0L) nowMillis else maxSeenUploadDate
                     chapter.copy(dateUpload = altDateUpload)
@@ -167,6 +163,8 @@ class SyncChaptersWithSource(
                 }
             }
         }
+
+        val removedChapters = removedByUrlChapters.filterNot { it.id in reconciledDbChapterIdsToRemove }
 
         // Return if there's nothing to add, delete, or update to avoid unnecessary db transactions.
         if (newChapters.isEmpty() && removedChapters.isEmpty() && updatedChapters.isEmpty()) {
@@ -277,18 +275,15 @@ class SyncChaptersWithSource(
             }
         }
 
-        // KMK -->
         // Remove orphaned chapters that are now replaced by real source chapters
-        if (orphanedToRemove.isNotEmpty()) {
-            chapterRepository.removeChaptersWithIds(orphanedToRemove)
+        if (reconciledDbChapterIdsToRemove.isNotEmpty()) {
+            chapterRepository.removeChaptersWithIds(reconciledDbChapterIdsToRemove.toList())
         }
-        // KMK <--
 
         if (updatedToAdd.isNotEmpty()) {
             updatedToAdd = chapterRepository.addAll(updatedToAdd)
         }
 
-        // KMK -->
         // Place newly fetched chapters at the top when custom sort order is active
         if (updatedToAdd.isNotEmpty() && manga.sorting == Manga.CHAPTER_SORTING_CUSTOM) {
             val existingWithCustomOrder = dbChapters.filter { it.customSortOrder != null }
@@ -311,7 +306,6 @@ class SyncChaptersWithSource(
                 updateChapter.awaitAll(shiftUpdates + newChapterUpdates)
             }
         }
-        // KMK <--
 
         if (updatedChapters.isNotEmpty()) {
             val chapterUpdates = updatedChapters.map { it.toChapterUpdate() }
@@ -367,5 +361,52 @@ class SyncChaptersWithSource(
         val excludedScanlators = getExcludedScanlators.await(manga.id).toHashSet()
 
         return updatedToAdd.filterNot { it.url in changedOrDuplicateReadUrls || it.scanlator in excludedScanlators }
+    }
+
+    private fun isReconciliationCandidateMatch(
+        candidate: Chapter,
+        incoming: Chapter,
+        manga: Manga,
+    ): Boolean {
+        if (!incoming.isRecognizedNumber || !candidate.isRecognizedNumber) return false
+        if (candidate.chapterNumber != incoming.chapterNumber) return false
+
+        val isOrphanedCandidate = candidate.url.startsWith("orphaned://")
+        val isDownloadedRetainedCandidate = downloadManager.isChapterDownloaded(
+            chapterName = candidate.name,
+            chapterScanlator = candidate.scanlator,
+            chapterUrl = candidate.url,
+            mangaTitle = manga.ogTitle,
+            sourceId = manga.source,
+        )
+        if (!isOrphanedCandidate && !isDownloadedRetainedCandidate) return false
+
+        if (!hasCompatibleScanlator(candidate.scanlator, incoming.scanlator)) return false
+
+        // Keep number-based reconciliation strict to avoid incorrect merges.
+        return hasCompatibleChapterName(candidate.name, incoming.name)
+    }
+
+    private fun hasCompatibleScanlator(existing: String?, incoming: String?): Boolean {
+        if (existing.isNullOrBlank() || incoming.isNullOrBlank()) return true
+        return existing.equals(incoming, ignoreCase = true)
+    }
+
+    private fun hasCompatibleChapterName(existing: String, incoming: String): Boolean {
+        val existingNormalized = existing.lowercase().replace(Regex("[^a-z0-9]"), "")
+        val incomingNormalized = incoming.lowercase().replace(Regex("[^a-z0-9]"), "")
+        if (existingNormalized.isEmpty() || incomingNormalized.isEmpty()) return false
+
+        if (existingNormalized == incomingNormalized) return true
+
+        val existingDigits = Regex("\\d+").findAll(existing).map { it.value }.toSet()
+        val incomingDigits = Regex("\\d+").findAll(incoming).map { it.value }.toSet()
+        if (existingDigits.isNotEmpty() && incomingDigits.isNotEmpty() && existingDigits.intersect(incomingDigits).isNotEmpty()) {
+            return true
+        }
+
+        val lengthDelta = abs(existingNormalized.length - incomingNormalized.length)
+        return lengthDelta <= 8 &&
+            (existingNormalized.contains(incomingNormalized) || incomingNormalized.contains(existingNormalized))
     }
 }

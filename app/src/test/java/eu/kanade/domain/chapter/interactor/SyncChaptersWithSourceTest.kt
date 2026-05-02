@@ -86,6 +86,226 @@ class SyncChaptersWithSourceTest {
         }
     }
 
+    @Test
+    fun `downloaded chapter with changed source url should be reconciled instead of duplicated`() = runBlocking {
+        val downloadManager = mockk<DownloadManager>()
+        val downloadProvider = mockk<DownloadProvider>()
+        val chapterRepository = mockk<ChapterRepository>()
+        val updateManga = mockk<UpdateManga>()
+        val updateChapter = mockk<UpdateChapter>()
+        val getChaptersByMangaId = mockk<GetChaptersByMangaId>()
+        val getExcludedScanlators = mockk<GetExcludedScanlators>()
+        val libraryPreferences = mockk<LibraryPreferences>()
+        val markDuplicatePreference = mockk<Preference<Set<String>>>()
+
+        val existingDownloadedChapter = Chapter.create().copy(
+            id = 11,
+            mangaId = 10,
+            read = false,
+            lastPageRead = 12,
+            chapterNumber = 12.0,
+            name = "Chapter 12 (old naming)",
+            url = "/chapter-12-old",
+        )
+        val dbChapters = listOf(existingDownloadedChapter)
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val sourceChapter = SChapter.create().apply {
+            name = "Ch. 12"
+            url = "/chapter-12-new"
+            chapter_number = 12f
+        }
+
+        coEvery { getChaptersByMangaId.await(manga.id) } returns dbChapters
+        every { downloadManager.isChapterDownloaded(any(), any(), any(), any(), any()) } returns true
+        coEvery { chapterRepository.removeChaptersWithIds(any()) } returns Unit
+        coEvery { chapterRepository.addAll(any()) } answers { firstArg() }
+        coEvery { updateChapter.awaitAll(any()) } returns Unit
+        coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
+        coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
+        every { markDuplicatePreference.get() } returns emptySet()
+
+        val sync = SyncChaptersWithSource(
+            downloadManager = downloadManager,
+            downloadProvider = downloadProvider,
+            chapterRepository = chapterRepository,
+            shouldUpdateDbChapter = ShouldUpdateDbChapter(),
+            updateManga = updateManga,
+            updateChapter = updateChapter,
+            getChaptersByMangaId = getChaptersByMangaId,
+            getExcludedScanlators = getExcludedScanlators,
+            libraryPreferences = libraryPreferences,
+        )
+
+        sync.await(
+            rawSourceChapters = listOf(sourceChapter),
+            manga = manga,
+            source = localSource(),
+            manualFetch = false,
+        )
+
+        coVerify(exactly = 1) { chapterRepository.removeChaptersWithIds(match { 11L in it }) }
+    }
+
+    @Test
+    fun `same chapter number with different scanlator should not reconcile downloaded chapter`() = runBlocking {
+        val downloadManager = mockk<DownloadManager>()
+        val downloadProvider = mockk<DownloadProvider>()
+        val chapterRepository = mockk<ChapterRepository>()
+        val updateManga = mockk<UpdateManga>()
+        val updateChapter = mockk<UpdateChapter>()
+        val getChaptersByMangaId = mockk<GetChaptersByMangaId>()
+        val getExcludedScanlators = mockk<GetExcludedScanlators>()
+        val libraryPreferences = mockk<LibraryPreferences>()
+        val markDuplicatePreference = mockk<Preference<Set<String>>>()
+
+        val existingDownloadedChapter = Chapter.create().copy(
+            id = 21,
+            mangaId = 10,
+            read = false,
+            chapterNumber = 12.0,
+            name = "Chapter 12",
+            scanlator = "GroupA",
+            url = "/chapter-12-old",
+        )
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val sourceChapter = SChapter.create().apply {
+            name = "Chapter 12"
+            url = "/chapter-12-new"
+            chapter_number = 12f
+            scanlator = "GroupB"
+        }
+
+        coEvery { getChaptersByMangaId.await(manga.id) } returns listOf(existingDownloadedChapter)
+        every { downloadManager.isChapterDownloaded(any(), any(), any(), any(), any()) } returns true
+        coEvery { chapterRepository.removeChaptersWithIds(any()) } returns Unit
+        coEvery { chapterRepository.addAll(any()) } answers { firstArg() }
+        coEvery { updateChapter.awaitAll(any()) } returns Unit
+        coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
+        coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
+        every { markDuplicatePreference.get() } returns emptySet()
+
+        val sync = SyncChaptersWithSource(
+            downloadManager = downloadManager,
+            downloadProvider = downloadProvider,
+            chapterRepository = chapterRepository,
+            shouldUpdateDbChapter = ShouldUpdateDbChapter(),
+            updateManga = updateManga,
+            updateChapter = updateChapter,
+            getChaptersByMangaId = getChaptersByMangaId,
+            getExcludedScanlators = getExcludedScanlators,
+            libraryPreferences = libraryPreferences,
+        )
+
+        sync.await(
+            rawSourceChapters = listOf(sourceChapter),
+            manga = manga,
+            source = localSource(),
+            manualFetch = false,
+        )
+
+        coVerify(exactly = 0) { chapterRepository.removeChaptersWithIds(match { 21L in it }) }
+    }
+
+    @Test
+    fun `reconciled chapter keeps read state while other downloaded removed chapter is auto-marked read`() = runBlocking {
+        val downloadManager = mockk<DownloadManager>()
+        val downloadProvider = mockk<DownloadProvider>()
+        val chapterRepository = mockk<ChapterRepository>()
+        val updateManga = mockk<UpdateManga>()
+        val updateChapter = mockk<UpdateChapter>()
+        val getChaptersByMangaId = mockk<GetChaptersByMangaId>()
+        val getExcludedScanlators = mockk<GetExcludedScanlators>()
+        val libraryPreferences = mockk<LibraryPreferences>()
+        val markDuplicatePreference = mockk<Preference<Set<String>>>()
+
+        val reconciledCandidate = Chapter.create().copy(
+            id = 31,
+            mangaId = 10,
+            read = true,
+            chapterNumber = 12.0,
+            name = "Chapter 12 old",
+            url = "/chapter-12-old",
+        )
+        val downloadedRemovedUnread = Chapter.create().copy(
+            id = 32,
+            mangaId = 10,
+            read = false,
+            chapterNumber = 50.0,
+            name = "Chapter 50",
+            url = "/chapter-50",
+        )
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val sourceChapter = SChapter.create().apply {
+            name = "Ch. 12"
+            url = "/chapter-12-new"
+            chapter_number = 12f
+        }
+
+        coEvery { getChaptersByMangaId.await(manga.id) } returns listOf(reconciledCandidate, downloadedRemovedUnread)
+        every {
+            downloadManager.isChapterDownloaded(
+                chapterName = any(),
+                chapterScanlator = any(),
+                chapterUrl = any(),
+                mangaTitle = any(),
+                sourceId = any(),
+            )
+        } answers {
+            val chapterUrl = arg<String>(2)
+            chapterUrl == "/chapter-12-old" || chapterUrl == "/chapter-50"
+        }
+        coEvery { chapterRepository.removeChaptersWithIds(any()) } returns Unit
+        coEvery { chapterRepository.addAll(any()) } answers { firstArg() }
+        coEvery { updateChapter.awaitAll(any()) } returns Unit
+        coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
+        coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
+        every { markDuplicatePreference.get() } returns emptySet()
+
+        val sync = SyncChaptersWithSource(
+            downloadManager = downloadManager,
+            downloadProvider = downloadProvider,
+            chapterRepository = chapterRepository,
+            shouldUpdateDbChapter = ShouldUpdateDbChapter(),
+            updateManga = updateManga,
+            updateChapter = updateChapter,
+            getChaptersByMangaId = getChaptersByMangaId,
+            getExcludedScanlators = getExcludedScanlators,
+            libraryPreferences = libraryPreferences,
+        )
+
+        sync.await(
+            rawSourceChapters = listOf(sourceChapter),
+            manga = manga,
+            source = localSource(),
+            manualFetch = false,
+        )
+
+        coVerify(exactly = 1) {
+            chapterRepository.addAll(
+                match { added ->
+                    added.size == 1 &&
+                        added.first().url == "/chapter-12-new" &&
+                        added.first().read
+                },
+            )
+        }
+        coVerify(exactly = 1) {
+            updateChapter.awaitAll(
+                match { updates ->
+                    updates.size == 1 &&
+                        updates.first().id == downloadedRemovedUnread.id &&
+                        updates.first().read == true
+                },
+            )
+        }
+    }
+
     private fun chapter(
         id: Long,
         read: Boolean,

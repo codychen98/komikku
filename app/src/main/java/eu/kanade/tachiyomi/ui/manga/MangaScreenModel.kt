@@ -1587,6 +1587,14 @@ class MangaScreenModel(
     fun excludeChapters(items: List<ChapterList.Item>) {
         val chapters = items.map { it.chapter }
         screenModelScope.launchNonCancellable {
+            val unreadChapterUpdates = chapters
+                .asSequence()
+                .filter { !it.read }
+                .map { ChapterUpdate(id = it.id, read = true) }
+                .toList()
+            if (unreadChapterUpdates.isNotEmpty()) {
+                updateChapter.awaitAll(unreadChapterUpdates)
+            }
             deleteChapters(chapters)
             excludeChapter.await(chapters, excluded = true)
         }

@@ -48,6 +48,7 @@ import eu.kanade.tachiyomi.util.chapter.filterDownloaded
 import eu.kanade.tachiyomi.util.chapter.removeDuplicates
 // KMK -->
 import eu.kanade.tachiyomi.util.chapter.removeSubChapterDuplicates
+import eu.kanade.tachiyomi.util.chapter.unreadSkippedSubChapterDuplicates
 // KMK <--
 import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.lang.byteSize
@@ -109,6 +110,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.time.Instant
 import java.util.Date
+import kotlin.math.floor
 
 /**
  * Presenter used by the activity to perform background operations.
@@ -899,9 +901,29 @@ class ReaderViewModel @JvmOverloads constructor(
         updateTrackChapterRead(readerChapter)
         deleteChapterIfNeeded(readerChapter)
 
+        val subChapterDuplicateUnreadChapters = if (
+            manga?.skipSubChapterDuplicates == true &&
+            readerChapter.chapter.chapter_number >= 0 &&
+            readerChapter.chapter.chapter_number == floor(readerChapter.chapter.chapter_number.toDouble()).toFloat()
+        ) {
+            val wholeNumber = floor(readerChapter.chapter.chapter_number.toDouble())
+            unfilteredChapterList
+                .unreadSkippedSubChapterDuplicates()
+                .filter { chapter -> floor(chapter.chapterNumber) == wholeNumber }
+                .map { chapter ->
+                    ChapterUpdate(id = chapter.id, read = true)
+                        .also { deleteDupChapterIfNeeded(ReaderChapter(chapter.copy(read = true))) }
+                }
+        } else {
+            emptyList()
+        }
+
         val markDuplicateAsRead = libraryPreferences.markDuplicateReadChapterAsRead().get()
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
-        if (!markDuplicateAsRead) return
+        if (!markDuplicateAsRead) {
+            updateChapter.awaitAll(subChapterDuplicateUnreadChapters)
+            return
+        }
 
         val duplicateUnreadChapters = unfilteredChapterList
             .mapNotNull { chapter ->
@@ -918,7 +940,7 @@ class ReaderViewModel @JvmOverloads constructor(
                     null
                 }
             }
-        updateChapter.awaitAll(duplicateUnreadChapters)
+        updateChapter.awaitAll(subChapterDuplicateUnreadChapters + duplicateUnreadChapters)
     }
 
     fun restartReadTimer() {

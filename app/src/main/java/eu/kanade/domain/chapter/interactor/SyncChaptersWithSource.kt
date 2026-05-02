@@ -266,6 +266,15 @@ class SyncChaptersWithSource(
                 val toDeleteIds = notDownloadedRemovedChapters.map { it.id }
                 chapterRepository.removeChaptersWithIds(toDeleteIds)
             }
+
+            val downloadedUnreadRemovedChapterUpdates = downloadedRemovedChapters
+                .asSequence()
+                .filterNot { it.read }
+                .map { ChapterUpdate(id = it.id, read = true) }
+                .toList()
+            if (downloadedUnreadRemovedChapterUpdates.isNotEmpty()) {
+                updateChapter.awaitAll(downloadedUnreadRemovedChapterUpdates)
+            }
         }
 
         // KMK -->

@@ -72,6 +72,7 @@ import eu.kanade.tachiyomi.util.chapter.getNextUnread
 // KMK -->
 import eu.kanade.tachiyomi.util.chapter.removeDuplicates as removeDuplicateChapters
 import eu.kanade.tachiyomi.util.chapter.removeSubChapterDuplicates
+import eu.kanade.tachiyomi.util.chapter.unreadSkippedSubChapterDuplicates
 // KMK <--
 import eu.kanade.tachiyomi.util.removeCovers
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
@@ -1428,6 +1429,7 @@ class MangaScreenModel(
         if (chapters.isEmpty()) return
         screenModelScope.launchIO {
             setReadStatus.await(
+                manga = successState?.manga ?: return@launchIO,
                 read = read,
                 chapters = chapters.toTypedArray(),
             )
@@ -1610,10 +1612,28 @@ class MangaScreenModel(
     fun toggleSkipSubChapterDuplicates() {
         val manga = successState?.manga ?: return
         screenModelScope.launchNonCancellable {
-            setMangaChapterFlags.awaitSetSkipSubChapterDuplicates(
+            val shouldEnableSkipSubChapterDuplicates = !manga.skipSubChapterDuplicates
+            val updated = setMangaChapterFlags.awaitSetSkipSubChapterDuplicates(
                 manga,
-                !manga.skipSubChapterDuplicates,
+                shouldEnableSkipSubChapterDuplicates,
             )
+            if (!updated || !shouldEnableSkipSubChapterDuplicates) return@launchNonCancellable
+
+            val chapters = if (manga.source == MERGED_SOURCE_ID) {
+                getMergedChaptersByMangaId.await(
+                    mangaId = manga.id,
+                    dedupe = false,
+                    applyFilter = false,
+                )
+            } else {
+                getMangaAndChapters.awaitChapters(manga.id, applyFilter = false)
+            }
+            val chapterUpdates = chapters
+                .unreadSkippedSubChapterDuplicates()
+                .map { chapter -> ChapterUpdate(id = chapter.id, read = true) }
+            if (chapterUpdates.isEmpty()) return@launchNonCancellable
+
+            updateChapter.awaitAll(chapterUpdates)
         }
     }
     // KMK <--

@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.library.LibraryScreenModel
 import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
+import eu.kanade.tachiyomi.util.chapter.unreadSkippedSubChapterDuplicates
 import eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel
 import exh.source.MERGED_SOURCE_ID
 import logcat.LogPriority
@@ -17,6 +18,7 @@ import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.MangaRepository
+import kotlin.math.floor
 
 class SetReadStatus(
     private val downloadPreferences: DownloadPreferences,
@@ -70,6 +72,9 @@ class SetReadStatus(
             chapterRepository.updateAll(
                 chaptersToUpdate.map { mapper(it, read) },
             )
+            if (read) {
+                markSkippedSubChapterDuplicatesAsRead(chaptersToUpdate)
+            }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             return@withNonCancellableContext Result.InternalError(e)
@@ -98,6 +103,82 @@ class SetReadStatus(
         Result.Success
     }
 
+    suspend fun await(
+        manga: Manga,
+        read: Boolean,
+        vararg chapters: Chapter,
+        manually: Boolean = true,
+    ): Result = withNonCancellableContext {
+        val newlyReadWholeNumbers = if (read) {
+            chapters
+                .filter { !it.read && it.chapterNumber >= 0 && it.chapterNumber == floor(it.chapterNumber) }
+                .map { floor(it.chapterNumber) }
+                .toSet()
+        } else {
+            emptySet()
+        }
+
+        val result = await(
+            read = read,
+            chapters = chapters,
+            manually = manually,
+        )
+        if (
+            result != Result.Success ||
+            !read ||
+            manga.source != MERGED_SOURCE_ID ||
+            !manga.skipSubChapterDuplicates ||
+            newlyReadWholeNumbers.isEmpty()
+        ) {
+            return@withNonCancellableContext result
+        }
+
+        val mergedChapterUpdates = getMergedChaptersByMangaId
+            .await(
+                mangaId = manga.id,
+                dedupe = false,
+                applyFilter = false,
+            )
+            .unreadSkippedSubChapterDuplicates()
+            .filter { chapter -> floor(chapter.chapterNumber) in newlyReadWholeNumbers }
+            .map { chapter -> ChapterUpdate(id = chapter.id, read = true) }
+        if (mergedChapterUpdates.isNotEmpty()) {
+            chapterRepository.updateAll(mergedChapterUpdates)
+        }
+
+        result
+    }
+
+    private suspend fun markSkippedSubChapterDuplicatesAsRead(
+        chaptersMarkedRead: List<Chapter>,
+    ) {
+        val newlyReadWholeNumbersByManga = chaptersMarkedRead
+            .asSequence()
+            .map { chapter -> chapter.mangaId to chapter.chapterNumber }
+            .filter { (_, chapterNumber) ->
+                chapterNumber >= 0 && chapterNumber == floor(chapterNumber)
+            }
+            .groupBy(
+                keySelector = { (mangaId, _) -> mangaId },
+                valueTransform = { (_, chapterNumber) -> floor(chapterNumber) },
+            )
+            .mapValues { (_, chapterNumbers) -> chapterNumbers.toSet() }
+        if (newlyReadWholeNumbersByManga.isEmpty()) return
+
+        val chapterUpdates = newlyReadWholeNumbersByManga.flatMap { (mangaId, newlyReadWholeNumbers) ->
+            val manga = mangaRepository.getMangaById(mangaId)
+            if (!manga.skipSubChapterDuplicates) return@flatMap emptyList()
+
+            chapterRepository
+                .getChapterByMangaId(mangaId, applyFilter = false)
+                .unreadSkippedSubChapterDuplicates()
+                .filter { chapter -> floor(chapter.chapterNumber) in newlyReadWholeNumbers }
+                .map { chapter -> ChapterUpdate(id = chapter.id, read = true) }
+        }
+        if (chapterUpdates.isEmpty()) return
+        chapterRepository.updateAll(chapterUpdates)
+    }
+
     suspend fun await(mangaId: Long, read: Boolean): Result = withNonCancellableContext {
         await(
             read = read,
@@ -109,7 +190,9 @@ class SetReadStatus(
 
     // SY -->
     private suspend fun awaitMerged(mangaId: Long, read: Boolean) = withNonCancellableContext f@{
+        val manga = mangaRepository.getMangaById(mangaId)
         return@f await(
+            manga = manga,
             read = read,
             chapters = getMergedChaptersByMangaId
                 .await(mangaId, dedupe = false)

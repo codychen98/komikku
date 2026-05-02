@@ -24,11 +24,31 @@ fun List<Chapter>.removeDuplicates(): List<Chapter> {
         .map { (_, chapters) -> chapters.first() }
 }
 
-// Sub-chapter dedup (reader context - always keeps currentChapter)
-fun List<Chapter>.removeSubChapterDuplicates(currentChapter: Chapter): List<Chapter> {
-    val wholeNumbers = map { it.chapterNumber }
+private fun List<Chapter>.nonNegativeWholeChapterNumberSet(): Set<Double> {
+    return map { it.chapterNumber }
         .filter { it >= 0 && it == floor(it) }
         .toSet()
+}
+
+/**
+ * Chapters hidden by [removeSubChapterDuplicates] (no current chapter) that are still unread.
+ * Used to align DB read state with reader/downloader-visible lists when sub-chapter dedupe applies.
+ */
+fun List<Chapter>.unreadSkippedSubChapterDuplicates(): List<Chapter> {
+    val wholeNumbers = nonNegativeWholeChapterNumberSet()
+    return filter { chapter ->
+        val num = chapter.chapterNumber
+        val wouldBeHidden =
+            num >= 0 &&
+                num != floor(num) &&
+                floor(num) in wholeNumbers
+        wouldBeHidden && !chapter.read
+    }
+}
+
+// Sub-chapter dedup (reader context - always keeps currentChapter)
+fun List<Chapter>.removeSubChapterDuplicates(currentChapter: Chapter): List<Chapter> {
+    val wholeNumbers = nonNegativeWholeChapterNumberSet()
 
     return filter { chapter ->
         if (chapter.id == currentChapter.id) return@filter true
@@ -40,9 +60,7 @@ fun List<Chapter>.removeSubChapterDuplicates(currentChapter: Chapter): List<Chap
 
 // Sub-chapter dedup (download context - no current chapter to preserve)
 fun List<Chapter>.removeSubChapterDuplicates(): List<Chapter> {
-    val wholeNumbers = map { it.chapterNumber }
-        .filter { it >= 0 && it == floor(it) }
-        .toSet()
+    val wholeNumbers = nonNegativeWholeChapterNumberSet()
 
     return filter { chapter ->
         val num = chapter.chapterNumber

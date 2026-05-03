@@ -95,7 +95,6 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.download.service.DownloadPreferences
-import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.interactor.UpsertHistory
 import tachiyomi.domain.history.model.HistoryUpdate
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -129,7 +128,6 @@ class ReaderViewModel @JvmOverloads constructor(
     private val trackChapter: TrackChapter = Injekt.get(),
     private val getManga: GetManga = Injekt.get(),
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
-    private val getNextChapters: GetNextChapters = Injekt.get(),
     private val upsertHistory: UpsertHistory = Injekt.get(),
     private val updateChapter: UpdateChapter = Injekt.get(),
     private val setMangaViewerFlags: SetMangaViewerFlags = Injekt.get(),
@@ -334,7 +332,6 @@ class ReaderViewModel @JvmOverloads constructor(
             // KMK -->
             .filterNot { it.excluded }
             // KMK <--
-            // Same sort as manga chapter list so next/prev are adjacent rows.
             .sortedWith(getChapterSort(manga))
             .run {
                 if (readerPreferences.skipDupe().get()) {
@@ -556,11 +553,15 @@ class ReaderViewModel @JvmOverloads constructor(
         loader.loadChapter(chapter /* SY --> */, page/* SY <-- */)
 
         val chapterPos = chapterList.indexOf(chapter)
-        val newChapters = ViewerChapters(
-            chapter,
-            chapterList.getOrNull(chapterPos - 1),
-            chapterList.getOrNull(chapterPos + 1),
-        )
+        val newChapters = if (chapterPos < 0) {
+            ViewerChapters(chapter, null, null)
+        } else {
+            ViewerChapters(
+                chapter,
+                chapterList.getOrNull(chapterPos + 1),
+                chapterList.getOrNull(chapterPos - 1),
+            )
+        }
 
         withUIContext {
             mutableState.update {
@@ -728,7 +729,8 @@ class ReaderViewModel @JvmOverloads constructor(
 
         // Only download ahead if current + next chapter is already downloaded too to avoid jank
         if (getCurrentChapter()?.pageLoader !is DownloadPageLoader) return
-        val nextChapter = state.value.viewerChapters?.nextChapter?.chapter ?: return
+        val nextReaderChapter = state.value.viewerChapters?.nextChapter ?: return
+        val nextChapter = nextReaderChapter.chapter
 
         // KMK -->
         val mangas = state.value.mergedManga ?: mapOf(manga.id to manga)
@@ -736,6 +738,8 @@ class ReaderViewModel @JvmOverloads constructor(
         // KMK <--
 
         viewModelScope.launchIO {
+            val anchorPos = chapterList.indexOf(nextReaderChapter).takeIf { it >= 0 } ?: return@launchIO
+
             val isNextChapterDownloaded = downloadManager.isChapterDownloaded(
                 nextChapter.name,
                 nextChapter.scanlator,
@@ -747,23 +751,32 @@ class ReaderViewModel @JvmOverloads constructor(
             )
             if (!isNextChapterDownloaded) return@launchIO
 
-            val chaptersToDownload = getNextChapters.await(manga.id, nextChapter.id!!).run {
-                if (readerPreferences.skipDupe().get()) {
-                    removeDuplicates(nextChapter.toDomainChapter()!!)
-                } else {
-                    this
+            val anchorDomain = nextChapter.toDomainChapter() ?: return@launchIO
+            val alongNextUnread = mutableListOf<Chapter>()
+            for (idx in anchorPos downTo 0) {
+                val dc = chapterList.getOrNull(idx)?.chapter?.toDomainChapter()
+                when {
+                    dc == null -> continue
+                    dc.read -> continue
+                    else -> alongNextUnread.add(dc)
                 }
             }
-            // KMK -->
-            .run {
-                if (readerPreferences.skipDupe().get() && manga.skipSubChapterDuplicates) {
-                    removeSubChapterDuplicates(nextChapter.toDomainChapter()!!)
-                } else {
-                    this
+            val chaptersToDownload = alongNextUnread
+                .run {
+                    if (readerPreferences.skipDupe().get()) {
+                        removeDuplicates(anchorDomain)
+                    } else {
+                        this
+                    }
                 }
-            }
-            // KMK <--
-            .take(downloadAheadAmount)
+                .run {
+                    if (readerPreferences.skipDupe().get() && manga.skipSubChapterDuplicates) {
+                        removeSubChapterDuplicates(anchorDomain)
+                    } else {
+                        this
+                    }
+                }
+                .take(downloadAheadAmount)
 
             // KMK -->
             chaptersToDownload.groupBy { it.mangaId }.forEach { (mangaId, chapters) ->

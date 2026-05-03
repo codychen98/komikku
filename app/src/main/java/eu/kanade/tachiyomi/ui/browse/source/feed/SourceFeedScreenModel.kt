@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import mihon.domain.manga.model.toDomainManga
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
@@ -243,7 +244,7 @@ open class SourceFeedScreenModel(
                                 is SourceFeedUI.SourceSavedSearch -> source.getSearchManga(
                                     page = 1,
                                     query = sourceFeed.savedSearch.query.orEmpty(),
-                                    filters = getFilterList(sourceFeed.savedSearch, source),
+                                    filters = getFilterListForSavedSearchPreview(sourceFeed.savedSearch, source),
                                 )
                             }
                         }.mangas
@@ -274,16 +275,37 @@ open class SourceFeedScreenModel(
 
     private val filterSerializer = FilterSerializer()
 
-    private fun getFilterList(savedSearch: SavedSearch, source: CatalogueSource): FilterList {
-        val filters = savedSearch.filtersJson ?: return FilterList()
-        return runCatching {
-            val originalFilters = source.getFilterList()
-            filterSerializer.deserialize(
-                filters = originalFilters,
-                json = Json.decodeFromString(filters),
-            )
+    /**
+     * Strict restore plus one timed retry (fresh [CatalogueSource] handle) for saved-search feed rows.
+     */
+    private suspend fun getFilterListForSavedSearchPreview(
+        savedSearch: SavedSearch,
+        source: CatalogueSource,
+    ): FilterList {
+        val filtersJsonStr = savedSearch.filtersJson ?: return FilterList()
+        val json = runCatching { Json.decodeFromString<JsonArray>(filtersJsonStr) }.getOrElse {
+            throw IllegalArgumentException("Invalid saved search filters JSON", it)
+        }
+
+        fun tryRestore(cat: CatalogueSource): FilterList? = runCatching {
+            val originalFilters = cat.getFilterList()
+            filterSerializer.deserializeStrict(originalFilters, json)
             originalFilters
-        }.getOrElse { FilterList() }
+        }.getOrNull()
+
+        tryRestore(source)?.let { return it }
+
+        delay(RESTORE_RETRY_DELAY_MS)
+        val refreshed = sourceManager.get(sourceId) as? CatalogueSource
+            ?: throw IllegalArgumentException("Source unavailable for saved search filter restore")
+
+        tryRestore(refreshed)?.let { return it }
+
+        throw IllegalArgumentException("Saved search filters could not be restored")
+    }
+
+    private companion object {
+        private const val RESTORE_RETRY_DELAY_MS = 600L
     }
 
     @Composable

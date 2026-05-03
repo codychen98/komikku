@@ -30,7 +30,7 @@ class GetNextChapters(
         // SY -->
         if (manga.source == MERGED_SOURCE_ID) {
             val chapters = getMergedChaptersByMangaId.await(mangaId, applyFilter = true)
-                .sortedWith(getChapterSort(manga, sortDescending = false))
+                .sortedWith(getChapterSort(manga))
 
             return if (onlyUnread) {
                 chapters.filterNot { it.read }
@@ -40,7 +40,7 @@ class GetNextChapters(
         }
         if (manga.isEhBasedManga()) {
             val chapters = getChaptersByMangaId.await(mangaId, applyFilter = true)
-                .sortedWith(getChapterSort(manga, sortDescending = false))
+                .sortedWith(getChapterSort(manga))
 
             return if (onlyUnread) {
                 chapters.takeLast(1).takeUnless { it.firstOrNull()?.read == true }.orEmpty()
@@ -51,7 +51,7 @@ class GetNextChapters(
         // SY <--
 
         val chapters = getChaptersByMangaId.await(mangaId, applyFilter = true)
-            .sortedWith(getChapterSort(manga, sortDescending = false))
+            .sortedWith(getChapterSort(manga))
 
         return if (onlyUnread) {
             chapters.filterNot { it.read }

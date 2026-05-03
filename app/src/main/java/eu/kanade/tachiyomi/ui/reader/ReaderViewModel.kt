@@ -334,7 +334,8 @@ class ReaderViewModel @JvmOverloads constructor(
             // KMK -->
             .filterNot { it.excluded }
             // KMK <--
-            .sortedWith(getChapterSort(manga, sortDescending = false))
+            // Same sort as manga chapter list so next/prev are adjacent rows.
+            .sortedWith(getChapterSort(manga))
             .run {
                 if (readerPreferences.skipDupe().get()) {
                     removeDuplicates(selectedChapter)

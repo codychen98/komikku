@@ -25,7 +25,7 @@
     <string name="update_check_notification_preview_available">În curând actualizări!</string>
     <string name="changelogs">Jurnale de modificări</string>
     <string name="related_mangas_more">Mai asemănător cu acestea...</string>
-    <string name="too_many_in_feed">Prea multe surse în fluxul tău, nu pot adăuga mai mult decât limitat (20)</string>
+    <string name="too_many_in_feed">Prea multe surse în fluxul tău, nu pot adăuga mai mult decât limitat (30)</string>
     <string name="current_">Curent: %1$s</string>
     <string name="pref_theme_cover_based">Temă bazată pe copertă</string>
     <string name="pref_theme_cover_based_style_tonalspot">Punct tonal</string>

@@ -25,7 +25,7 @@
     <string name="update_check_notification_preview_available">Kommer (snart) opdateringer!</string>
     <string name="changelogs">Skift Logs</string>
     <string name="related_mangas_more">Mere som disse...</string>
-    <string name="too_many_in_feed">For mange kilder i dit feed, kan ikke tilføje mere end begrænset (20)</string>
+    <string name="too_many_in_feed">For mange kilder i dit feed, kan ikke tilføje mere end begrænset (30)</string>
     <string name="current_">Nuværende: %1$s</string>
     <string name="pref_theme_cover_based">Tema baseret på omslag</string>
     <string name="pref_theme_cover_based_style_neutral">Neutral</string>

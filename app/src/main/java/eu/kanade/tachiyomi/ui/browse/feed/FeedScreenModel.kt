@@ -78,37 +78,48 @@ open class FeedScreenModel(
     val events = _events.receiveAsFlow()
 
     private val coroutineDispatcher = Executors.newFixedThreadPool(1).asCoroutineDispatcher()
-    var pushed: Boolean = false
+
+    /**
+     * Process-lifetime latch: DB subscription always updates row list/order, but bulk network loads
+     * run only on first emission and for **new** feed row IDs thereafter (practical default). Manual
+     * [init] still clears and refetches all rows.
+     */
+    private var hasCompletedInitialAutomaticFetch = false
 
     init {
         getFeedSavedSearchGlobal.subscribe()
             .distinctUntilChanged()
-            .onEach {
+            .onEach { feedsFromDb ->
                 sourceManager.isInitialized.first { it }
-                val items = getSourcesToGetFeed(it).map { (feed, savedSearch) ->
+                val previousIds = mutableState.value.items.orEmpty().map { row -> row.feed.id }.toSet()
+                val items = getSourcesToGetFeed(feedsFromDb).map { (feed, savedSearch) ->
                     createCatalogueSearchItem(
                         feed = feed,
                         savedSearch = savedSearch,
                         source = sourceManager.get(feed.source) as? CatalogueSource,
                         results = null,
                     )
-                }
+                }.toImmutableList()
                 mutableState.update { state ->
                     state.copy(
-                        items = items
-                            // KMK -->
-                            .toImmutableList(),
-                        // KMK <--
+                        items = items,
                     )
                 }
-                getFeed(items)
+                if (!hasCompletedInitialAutomaticFetch) {
+                    getFeed(items)
+                    hasCompletedInitialAutomaticFetch = true
+                } else {
+                    val newIdsOnly = items.filter { row -> row.feed.id !in previousIds }
+                    if (newIdsOnly.isNotEmpty()) {
+                        getFeed(newIdsOnly)
+                    }
+                }
             }
             .catch { _events.send(Event.FailedFetchingSources) }
             .launchIn(screenModelScope)
     }
 
     fun init() {
-        pushed = false
         screenModelScope.launchIO {
             val newItems = state.value.items?.map { it.copy(results = null) } ?: return@launchIO
             mutableState.update { state ->
@@ -422,4 +433,4 @@ data class FeedScreenState(
         get() = items?.fastAny { it.results == null } != false
 }
 
-const val MaxFeedItems = 20
+const val MaxFeedItems = 30

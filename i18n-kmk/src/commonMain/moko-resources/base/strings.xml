@@ -180,7 +180,7 @@
     <string name="action_scroll_to_previous">Scroll to previous</string>
     <string name="action_scroll_to_next">Scroll to next</string>
     <!-- Feed Tab -->
-    <string name="too_many_in_feed">Too many sources in your feed, cannot add more than 20</string>
+    <string name="too_many_in_feed">Too many sources in your feed, cannot add more than 30</string>
     <string name="action_sort_feed">Sort feeds</string>
     <string name="sort_feed_confirmation">Would you like to sort the feeds alphabetically?</string>
     <!-- Migration -->

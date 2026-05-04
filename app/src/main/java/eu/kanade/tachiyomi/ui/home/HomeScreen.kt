@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastForEach
+import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
@@ -41,7 +42,9 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
+import eu.kanade.tachiyomi.ui.browse.BulkFavoriteScreenModel
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
+import eu.kanade.tachiyomi.ui.browse.feed.FeedScreenModel
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.history.HistoryTab
 import eu.kanade.tachiyomi.ui.library.LibraryTab
@@ -98,8 +101,15 @@ object HomeScreen : Screen() {
             tab = LibraryTab,
             key = TAB_NAVIGATOR_KEY,
         ) { tabNavigator ->
-            // Provide usable navigator to content screen
-            CompositionLocalProvider(LocalNavigator provides navigator) {
+            val feedScreenModel = rememberScreenModel { FeedScreenModel() }
+            val bulkFavoriteScreenModel = rememberScreenModel { BulkFavoriteScreenModel() }
+
+            // Provide usable navigator to content screen (feed models outlive Browse tab disposal)
+            CompositionLocalProvider(
+                LocalNavigator provides navigator,
+                LocalFeedScreenModel provides feedScreenModel,
+                LocalBulkFavoriteScreenModel provides bulkFavoriteScreenModel,
+            ) {
                 Scaffold(
                     startBar = {
                         if (isTabletUi()) {

@@ -25,7 +25,7 @@
     <string name="update_check_notification_preview_available">Najbliższe aktualizacje!</string>
     <string name="changelogs">Dziennik zmian</string>
     <string name="related_mangas_more">Więcej takich informacji...</string>
-    <string name="too_many_in_feed">Zbyt wiele źródeł w Twoim kanale, nie można dodać więcej niż ograniczonej liczby źródeł (20)</string>
+    <string name="too_many_in_feed">Zbyt wiele źródeł w Twoim kanale, nie można dodać więcej niż ograniczonej liczby źródeł (30)</string>
     <string name="current_">Aktualnie: %1$s</string>
     <string name="pref_theme_cover_based">Motyw oparty na okładce</string>
     <string name="pref_theme_cover_based_style_tonalspot">Punkt tonalny</string>

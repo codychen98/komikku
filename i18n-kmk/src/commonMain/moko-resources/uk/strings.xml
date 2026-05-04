@@ -25,7 +25,7 @@
     <string name="update_check_notification_preview_available">Будучи (скоро) оновлення!</string>
     <string name="changelogs">Список змін</string>
     <string name="related_mangas_more">Подобається це...</string>
-    <string name="too_many_in_feed">Занадто багато джерел у вашій стрічці, не можуть додати більше ніж обмежений (20)</string>
+    <string name="too_many_in_feed">Занадто багато джерел у вашій стрічці, не можуть додати більше ніж обмежений (30)</string>
     <string name="current_">Поточна: %1$s</string>
     <string name="pref_theme_cover_based">Тему на основі обкладинки</string>
     <string name="pref_theme_cover_based_style_tonalspot">Тональна цятка</string>

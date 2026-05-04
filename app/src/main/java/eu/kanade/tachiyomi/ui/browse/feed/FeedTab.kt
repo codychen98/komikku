@@ -8,7 +8,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,7 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalHapticFeedback
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.core.stack.StackEvent
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.browse.FeedAddDialog
@@ -62,20 +60,6 @@ fun Screen.feedTab(
         HomeScreen.showBottomNav(!bulkFavoriteState.selectionMode)
     }
     // KMK <--
-
-    DisposableEffect(navigator.lastEvent) {
-        if (navigator.lastEvent == StackEvent.Push) {
-            screenModel.pushed = true
-        } else if (!screenModel.pushed) {
-            screenModel.init()
-        }
-
-        onDispose {
-            if (navigator.lastEvent == StackEvent.Idle && screenModel.pushed) {
-                screenModel.pushed = false
-            }
-        }
-    }
 
     return TabContent(
         titleRes = SYMR.strings.feed,

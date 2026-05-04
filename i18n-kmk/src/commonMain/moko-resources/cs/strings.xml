@@ -25,7 +25,7 @@
     <string name="update_check_notification_preview_available">Probíhá (brzy) aktualizace!</string>
     <string name="changelogs">Záznamy změn</string>
     <string name="related_mangas_more">Líbí se mi to...</string>
-    <string name="too_many_in_feed">Příliš mnoho zdrojů ve vašem feedu, nemůže přidat více než omezené (20)</string>
+    <string name="too_many_in_feed">Příliš mnoho zdrojů ve vašem feedu, nemůže přidat více než omezené (30)</string>
     <string name="current_">Aktuální: %1$s</string>
     <string name="pref_theme_cover_based">Šablona založená na obálce</string>
     <string name="pref_theme_cover_based_style_tonalspot">Tonální terč</string>

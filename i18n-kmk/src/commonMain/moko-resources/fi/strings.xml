@@ -25,7 +25,7 @@
     <string name="update_check_notification_preview_available">Tulevat (pian) päivitykset!</string>
     <string name="changelogs">Muuta Lokeja</string>
     <string name="related_mangas_more">Enemmän näiden...</string>
-    <string name="too_many_in_feed">Liian monta lähdettä rehussa, ei voi lisätä enemmän kuin rajoitettu (20)</string>
+    <string name="too_many_in_feed">Liian monta lähdettä rehussa, ei voi lisätä enemmän kuin rajoitettu (30)</string>
     <string name="current_">Nykyinen: %1$s</string>
     <string name="pref_theme_cover_based">Teema perustuu kanteen</string>
     <string name="pref_theme_cover_based_style_tonalspot">Tonaalinen Spot</string>

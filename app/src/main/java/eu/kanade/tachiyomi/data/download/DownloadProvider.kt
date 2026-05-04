@@ -194,7 +194,7 @@ class DownloadProvider(
     fun resolveChapterImageDir(chapterRoot: UniFile): ResolvedChapterImageDir {
         val chapterName = chapterRoot.name.orEmpty()
         val rootFiles = chapterRoot.listFiles().orEmpty().toList()
-        val rootHasNoMedia = rootFiles.any { it.isFile && it.name == Downloader.NOMEDIA_FILE }
+        val rootHasNoMedia = rootFiles.any { it.isFile && it.name == DiskUtil.NOMEDIA_FILE }
         val rootHasImages = rootFiles.any { it.isFile && ImageUtil.isImage(it.name) { it.openInputStream() } }
 
         if (rootHasNoMedia && rootHasImages) {

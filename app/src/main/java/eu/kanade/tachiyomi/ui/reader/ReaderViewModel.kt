@@ -328,14 +328,15 @@ class ReaderViewModel @JvmOverloads constructor(
             else -> chapters
         }
 
+        val chapterSort = getChapterSort(manga)
         chaptersForReader
             // KMK -->
             .filterNot { it.excluded }
             // KMK <--
-            .sortedWith(getChapterSort(manga))
+            .sortedWith(chapterSort)
             .run {
                 if (readerPreferences.skipDupe().get()) {
-                    removeDuplicates(selectedChapter)
+                    removeDuplicatesKeepingOrphaned(selectedChapter, chapterSort)
                 } else {
                     this
                 }
@@ -360,7 +361,30 @@ class ReaderViewModel @JvmOverloads constructor(
             .map(::ReaderChapter)
     }
 
+    private fun List<Chapter>.removeDuplicatesKeepingOrphaned(
+        currentChapter: Chapter,
+        chapterSort: Comparator<Chapter>,
+    ): List<Chapter> {
+        val (orphaned, normal) = partition { it.url.startsWith(orphanedChapterUrlPrefix) }
+        if (normal.isEmpty()) {
+            return orphaned.sortedWith(chapterSort)
+        }
+
+        return (normal.removeDuplicates(currentChapter) + orphaned)
+            .sortedWith(chapterSort)
+    }
+
+    private fun List<Chapter>.removeDuplicatesKeepingOrphaned(currentChapter: Chapter): List<Chapter> {
+        val (orphaned, normal) = partition { it.url.startsWith(orphanedChapterUrlPrefix) }
+        if (normal.isEmpty()) {
+            return orphaned
+        }
+
+        return normal.removeDuplicates(currentChapter) + orphaned
+    }
+
     val incognitoMode: Boolean by lazy { getIncognitoState.await(manga?.source) }
+    private val orphanedChapterUrlPrefix = "orphaned://"
     private val downloadAheadAmount = downloadPreferences.autoDownloadWhileReading().get()
 
     init {
@@ -764,7 +788,7 @@ class ReaderViewModel @JvmOverloads constructor(
             val chaptersToDownload = alongNextUnread
                 .run {
                     if (readerPreferences.skipDupe().get()) {
-                        removeDuplicates(anchorDomain)
+                        removeDuplicatesKeepingOrphaned(anchorDomain)
                     } else {
                         this
                     }

@@ -276,6 +276,7 @@ class MangaScreenModel(
     private val skipFiltered by readerPreferences.skipFiltered().asState(screenModelScope)
     // KMK -->
     private val skipDupe by readerPreferences.skipDupe().asState(screenModelScope)
+    private val orphanedChapterUrlPrefix = "orphaned://"
     // KMK <--
 
     val isUpdateIntervalEnabled =
@@ -1495,7 +1496,9 @@ class MangaScreenModel(
         // KMK -->
         val state = successState ?: return
         val dedupedChapters = if (skipDupe) {
-            chapters.removeDuplicateChapters().let {
+            val (orphaned, normal) = chapters.partition { it.url.startsWith(orphanedChapterUrlPrefix) }
+            val effectiveChapters = normal.removeDuplicateChapters() + orphaned
+            effectiveChapters.let {
                 if (state.manga.skipSubChapterDuplicates) {
                     it.removeSubChapterDuplicates()
                 } else {

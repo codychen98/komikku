@@ -171,7 +171,13 @@ class DownloadManager(
             // SY <--
             source,
         )
-        val files = chapterDir?.listFiles().orEmpty()
+        val imageDir = if (chapterDir?.isDirectory == true) {
+            provider.resolveChapterImageDir(chapterDir).imageDir ?: chapterDir
+        } else {
+            chapterDir
+        }
+
+        val files = imageDir?.listFiles().orEmpty()
             .filter { it.isFile && ImageUtil.isImage(it.name) { it.openInputStream() } }
 
         if (files.isEmpty()) {

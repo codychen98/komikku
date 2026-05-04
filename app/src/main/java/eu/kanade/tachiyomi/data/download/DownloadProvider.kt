@@ -3,9 +3,11 @@ package eu.kanade.tachiyomi.data.download
 import android.content.Context
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.lang.Hash.md5
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import logcat.LogPriority
+import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.displayablePath
 import tachiyomi.core.common.util.system.logcat
@@ -34,6 +36,12 @@ class DownloadProvider(
     private val downloadPreferences: DownloadPreferences = Injekt.get(),
     // SY <--
 ) {
+    data class ResolvedChapterImageDir(
+        val chapterName: String,
+        val imageDir: UniFile?,
+        val isValid: Boolean,
+    )
+
 
     private val downloadsDir: UniFile?
         get() = storageManager.getDownloadsDirectory()
@@ -176,6 +184,50 @@ class DownloadProvider(
         }
     }
     // SY <--
+
+    /**
+     * Resolves the effective image directory for a chapter folder.
+     *
+     * Root is preferred only when it has both `.nomedia` and image files.
+     * If root has no `.nomedia`, only direct children are inspected.
+     */
+    fun resolveChapterImageDir(chapterRoot: UniFile): ResolvedChapterImageDir {
+        val chapterName = chapterRoot.name.orEmpty()
+        val rootFiles = chapterRoot.listFiles().orEmpty().toList()
+        val rootHasNoMedia = rootFiles.any { it.isFile && it.name == Downloader.NOMEDIA_FILE }
+        val rootHasImages = rootFiles.any { it.isFile && ImageUtil.isImage(it.name) { it.openInputStream() } }
+
+        if (rootHasNoMedia && rootHasImages) {
+            return ResolvedChapterImageDir(
+                chapterName = chapterName,
+                imageDir = chapterRoot,
+                isValid = true,
+            )
+        }
+
+        if (rootHasNoMedia) {
+            return ResolvedChapterImageDir(
+                chapterName = chapterName,
+                imageDir = null,
+                isValid = false,
+            )
+        }
+
+        val nestedImageDir = rootFiles.asSequence()
+            .filter { it.isDirectory }
+            .sortedWith { first, second ->
+                first.name.orEmpty().compareToCaseInsensitiveNaturalOrder(second.name.orEmpty())
+            }
+            .firstOrNull { childDir ->
+                childDir.listFiles().orEmpty().any { it.isFile && ImageUtil.isImage(it.name) { it.openInputStream() } }
+            }
+
+        return ResolvedChapterImageDir(
+            chapterName = chapterName,
+            imageDir = nestedImageDir,
+            isValid = nestedImageDir != null,
+        )
+    }
 
     /**
      * Returns the download directory name for a source.

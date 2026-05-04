@@ -333,9 +333,16 @@ class SyncChaptersWithSource(
                             fileName !in knownFolderNames &&
                             !fileName.endsWith(Downloader.TMP_DIR_SUFFIX)
                     }
-                    .map { dir ->
+                    .mapNotNull { dir ->
                         val fileName = dir.name ?: ""
-                        val chapterName = if (fileName.endsWith(".cbz")) fileName.dropLast(4) else fileName
+                        val chapterName = if (fileName.endsWith(".cbz")) {
+                            fileName.dropLast(4)
+                        } else {
+                            if (!dir.isDirectory) return@mapNotNull null
+                            val resolved = downloadProvider.resolveChapterImageDir(dir)
+                            if (!resolved.isValid) return@mapNotNull null
+                            resolved.chapterName
+                        }
                         val chapterNumber = ChapterRecognition.parseChapterNumber(
                             manga.title,
                             chapterName,

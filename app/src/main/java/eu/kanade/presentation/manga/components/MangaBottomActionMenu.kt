@@ -292,6 +292,7 @@ fun LibraryBottomActionMenu(
     onMigrateClicked: () -> Unit,
     // KMK -->
     onMergeClicked: () -> Unit,
+    onReindexMergeClicked: (() -> Unit)? = null,
     onSelectionUpdateClicked: () -> Unit,
     // KMK <--
     // SY -->
@@ -431,6 +432,12 @@ fun LibraryBottomActionMenu(
                             text = { Text(stringResource(SYMR.strings.merge)) },
                             onClick = onMergeClicked,
                         )
+                        if (onReindexMergeClicked != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(SYMR.strings.reindex_merge)) },
+                                onClick = onReindexMergeClicked,
+                            )
+                        }
                         if (onClickCleanTitles != null) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(SYMR.strings.action_clean_titles)) },

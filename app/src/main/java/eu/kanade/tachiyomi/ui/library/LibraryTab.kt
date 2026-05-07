@@ -4,12 +4,20 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.RadioButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -254,6 +262,7 @@ data object LibraryTab : Tab {
                             context.toast(SYMR.strings.no_valid_entry)
                         }
                     },
+                    onReindexMergeClicked = screenModel::openReindexMergeParentPicker,
                     onSelectionUpdateClicked = {
                         val started = screenModel.updateSelectedManga()
                         scope.launch {
@@ -409,6 +418,120 @@ data object LibraryTab : Tab {
                         onDismissRequest()
                         screenModel.clearSelection()
                         screenModel.runRecommendationSearch(dialog.manga)
+                    },
+                )
+            }
+            is LibraryScreenModel.Dialog.ReindexMergeParentPicker -> {
+                AlertDialog(
+                    onDismissRequest = screenModel::cancelReindexMergeDialog,
+                    title = { Text(stringResource(SYMR.strings.reindex_merge_select_parent_title)) },
+                    text = {
+                        Column {
+                            dialog.selectedManga.forEach { manga ->
+                                Row(
+                                    modifier = Modifier
+                                        .selectable(
+                                            selected = dialog.selectedParentId == manga.id,
+                                            onClick = { screenModel.setReindexMergeParent(manga.id) },
+                                        )
+                                        .padding(vertical = 4.dp),
+                                ) {
+                                    RadioButton(
+                                        selected = dialog.selectedParentId == manga.id,
+                                        onClick = { screenModel.setReindexMergeParent(manga.id) },
+                                    )
+                                    Text(
+                                        text = manga.title,
+                                        modifier = Modifier
+                                            .padding(start = 8.dp)
+                                            .clickable { screenModel.setReindexMergeParent(manga.id) },
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = screenModel::cancelReindexMergeDialog) {
+                            Text(stringResource(MR.strings.action_cancel))
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = screenModel::proceedToReindexMergeConfirmation,
+                            enabled = dialog.selectedParentId != null,
+                        ) {
+                            Text(stringResource(MR.strings.action_next))
+                        }
+                    },
+                )
+            }
+            is LibraryScreenModel.Dialog.ReindexMergeConfirm -> {
+                AlertDialog(
+                    onDismissRequest = screenModel::cancelReindexMergeDialog,
+                    title = { Text(stringResource(SYMR.strings.reindex_merge_confirm_title)) },
+                    text = {
+                        Text(
+                            "Parent: ${dialog.parent.title}\n" +
+                                "${stringResource(SYMR.strings.reindex_merge_children_to_merge, dialog.warning.childDeleteCount)}\n\n" +
+                                "${dialog.warning.warningMessage}\n\n" +
+                                stringResource(SYMR.strings.reindex_merge_children_deleted_warning),
+                        )
+                    },
+                    dismissButton = {
+                        TextButton(onClick = screenModel::cancelReindexMergeDialog) {
+                            Text(stringResource(MR.strings.action_cancel))
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = screenModel::executeReindexMergeConfirmed,
+                        ) {
+                            Text(stringResource(MR.strings.action_confirm))
+                        }
+                    },
+                )
+            }
+            is LibraryScreenModel.Dialog.ReindexMergeValidationError -> {
+                AlertDialog(
+                    onDismissRequest = screenModel::cancelReindexMergeDialog,
+                    title = { Text(stringResource(SYMR.strings.reindex_merge_validation_title)) },
+                    text = { Text(dialog.message) },
+                    confirmButton = {
+                        TextButton(onClick = screenModel::cancelReindexMergeDialog) {
+                            Text(stringResource(MR.strings.action_ok))
+                        }
+                    },
+                )
+            }
+            LibraryScreenModel.Dialog.ReindexMergeProgress -> {
+                AlertDialog(
+                    onDismissRequest = {},
+                    title = { Text(stringResource(SYMR.strings.reindex_merge_validation_title)) },
+                    text = { Text(stringResource(SYMR.strings.reindex_merge_progress_message)) },
+                    confirmButton = {},
+                )
+            }
+            is LibraryScreenModel.Dialog.ReindexMergeSummary -> {
+                AlertDialog(
+                    onDismissRequest = screenModel::acknowledgeReindexMergeSummary,
+                    title = {
+                        Text(
+                            if (dialog.isPartial) {
+                                stringResource(SYMR.strings.reindex_merge_summary_partial_title)
+                            } else {
+                                stringResource(SYMR.strings.reindex_merge_summary_complete_title)
+                            },
+                        )
+                    },
+                    text = {
+                        Text(
+                            "${dialog.message}\n\n${stringResource(SYMR.strings.reindex_merge_summary_stats, dialog.mergedChildren, dialog.movedEntries, dialog.renamedEntries, dialog.skippedEntries, dialog.errorCount)}",
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = screenModel::acknowledgeReindexMergeSummary) {
+                            Text(stringResource(MR.strings.action_ok))
+                        }
                     },
                 )
             }

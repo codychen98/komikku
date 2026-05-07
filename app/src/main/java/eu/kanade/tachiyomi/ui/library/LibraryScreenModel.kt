@@ -18,6 +18,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.manga.interactor.SmartSearchMerge
 import eu.kanade.domain.manga.interactor.UpdateManga
+import eu.kanade.domain.manga.interactor.ReindexMergeManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.presentation.components.SEARCH_DEBOUNCE_MILLIS
@@ -96,6 +97,7 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.model.Category.Companion.UNCATEGORIZED_ID
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.GetMergedChaptersByMangaId
+import tachiyomi.domain.chapter.interactor.RestoreOrphanedChapters
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -109,6 +111,7 @@ import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetMergedMangaById
 import tachiyomi.domain.manga.interactor.GetSearchTags
 import tachiyomi.domain.manga.interactor.GetSearchTitles
+import tachiyomi.domain.manga.interactor.DeleteMangaById
 import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
@@ -134,8 +137,10 @@ class LibraryScreenModel(
     private val getTracksPerManga: GetTracksPerManga = Injekt.get(),
     private val getNextChapters: GetNextChapters = Injekt.get(),
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
+    private val restoreOrphanedChapters: RestoreOrphanedChapters = Injekt.get(),
     private val setReadStatus: SetReadStatus = Injekt.get(),
     private val updateManga: UpdateManga = Injekt.get(),
+    private val deleteMangaById: DeleteMangaById = Injekt.get(),
     private val setMangaCategories: SetMangaCategories = Injekt.get(),
     private val preferences: BasePreferences = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
@@ -159,6 +164,7 @@ class LibraryScreenModel(
     // SY <--
     // KMK -->
     private val smartSearchMerge: SmartSearchMerge = Injekt.get(),
+    private val reindexMergeManga: ReindexMergeManga = Injekt.get(),
     // KMK <--
 ) : StateScreenModel<LibraryScreenModel.State>(State()) {
 
@@ -1443,6 +1449,159 @@ class LibraryScreenModel(
         mutableState.update { it.copy(dialog = Dialog.DeleteManga(state.value.selectedManga)) }
     }
 
+    fun openReindexMergeParentPicker() {
+        val selectedManga = state.value.selectedManga
+        if (selectedManga.size < 2) {
+            return
+        }
+        mutableState.update {
+            it.copy(
+                dialog = Dialog.ReindexMergeParentPicker(
+                    selectedManga = selectedManga,
+                    selectedParentId = selectedManga.firstOrNull()?.id,
+                ),
+            )
+        }
+    }
+
+    fun setReindexMergeParent(parentId: Long) {
+        mutableState.update { state ->
+            val dialog = state.dialog as? Dialog.ReindexMergeParentPicker ?: return@update state
+            if (dialog.selectedManga.none { it.id == parentId }) return@update state
+            state.copy(
+                dialog = dialog.copy(selectedParentId = parentId),
+            )
+        }
+    }
+
+    fun proceedToReindexMergeConfirmation() {
+        mutableState.update { state ->
+            val dialog = state.dialog as? Dialog.ReindexMergeParentPicker ?: return@update state
+            val parentId = dialog.selectedParentId
+                ?: return@update state.copy(
+                    dialog = Dialog.ReindexMergeValidationError(
+                        preferences.context.stringResource(SYMR.strings.reindex_merge_select_parent_error),
+                    ),
+                )
+            when (val result = reindexMergeManga.preflight(dialog.selectedManga, parentId)) {
+                is ReindexMergeManga.PreflightResult.Failure -> {
+                    state.copy(
+                        dialog = Dialog.ReindexMergeValidationError(result.message),
+                    )
+                }
+                is ReindexMergeManga.PreflightResult.Partial -> {
+                    state.copy(
+                        dialog = Dialog.ReindexMergeConfirm(
+                            parent = result.parent,
+                            children = result.children,
+                            warning = Dialog.ReindexMergeWarningData(
+                                selectedCount = dialog.selectedManga.size,
+                                childDeleteCount = result.children.size,
+                                warningMessage = result.message,
+                            ),
+                        ),
+                    )
+                }
+                is ReindexMergeManga.PreflightResult.Success -> {
+                    state.copy(
+                        dialog = Dialog.ReindexMergeConfirm(
+                            parent = result.parent,
+                            children = result.children,
+                            warning = Dialog.ReindexMergeWarningData(
+                                selectedCount = dialog.selectedManga.size,
+                                childDeleteCount = result.children.size,
+                                warningMessage = result.message,
+                            ),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    fun cancelReindexMergeDialog() {
+        closeDialog()
+    }
+
+    fun executeReindexMergeConfirmed() {
+        val dialog = state.value.dialog as? Dialog.ReindexMergeConfirm ?: return
+        mutableState.update {
+            it.copy(
+                dialog = Dialog.ReindexMergeProgress,
+            )
+        }
+        screenModelScope.launchNonCancellable {
+            val moveResult = reindexMergeManga.moveChildDownloads(dialog.parent, dialog.children)
+            suspend fun deleteFullyMergedChildren(report: ReindexMergeManga.MoveReport): Int {
+                val childIds = report.fullyMergedChildIds
+                dialog.children
+                    .asSequence()
+                    .map { it.id }
+                    .filter { it in childIds && it != dialog.parent.id }
+                    .forEach { deleteMangaById.await(it) }
+                return childIds.size
+            }
+            when (moveResult) {
+                is ReindexMergeManga.MoveResult.Failure -> {
+                    mutableState.update {
+                        it.copy(
+                            dialog = Dialog.ReindexMergeSummary(
+                                mergedChildren = 0,
+                                movedEntries = 0,
+                                renamedEntries = 0,
+                                skippedEntries = 0,
+                                errorCount = 1,
+                                isPartial = true,
+                                message = moveResult.message,
+                            ),
+                        )
+                    }
+                }
+                is ReindexMergeManga.MoveResult.Partial -> {
+                    downloadCache.invalidateCache()
+                    restoreOrphanedChapters.await()
+                    val deletedChildren = deleteFullyMergedChildren(moveResult.report)
+                    mutableState.update {
+                        it.copy(
+                            dialog = Dialog.ReindexMergeSummary(
+                                mergedChildren = deletedChildren,
+                                movedEntries = moveResult.report.moved,
+                                renamedEntries = moveResult.report.renamed,
+                                skippedEntries = moveResult.report.skipped,
+                                errorCount = moveResult.report.errors.size,
+                                isPartial = true,
+                                message = preferences.context.stringResource(SYMR.strings.reindex_merge_partial_retry_message),
+                            ),
+                        )
+                    }
+                }
+                is ReindexMergeManga.MoveResult.Success -> {
+                    downloadCache.invalidateCache()
+                    restoreOrphanedChapters.await()
+                    val deletedChildren = deleteFullyMergedChildren(moveResult.report)
+                    mutableState.update {
+                        it.copy(
+                            dialog = Dialog.ReindexMergeSummary(
+                                mergedChildren = deletedChildren,
+                                movedEntries = moveResult.report.moved,
+                                renamedEntries = moveResult.report.renamed,
+                                skippedEntries = moveResult.report.skipped,
+                                errorCount = 0,
+                                isPartial = false,
+                                message = preferences.context.stringResource(SYMR.strings.reindex_merge_success_message),
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun acknowledgeReindexMergeSummary() {
+        clearSelection()
+        closeDialog()
+    }
+
     fun closeDialog() {
         mutableState.update { it.copy(dialog = null) }
     }
@@ -1460,6 +1619,33 @@ class LibraryScreenModel(
         data object SyncFavoritesConfirm : Dialog
         data class RecommendationSearchSheet(val manga: List<Manga>) : Dialog
         // SY <--
+        data class ReindexMergeParentPicker(
+            val selectedManga: List<Manga>,
+            val selectedParentId: Long?,
+        ) : Dialog
+        data class ReindexMergeConfirm(
+            val parent: Manga,
+            val children: List<Manga>,
+            val warning: ReindexMergeWarningData,
+        ) : Dialog
+        data class ReindexMergeWarningData(
+            val selectedCount: Int,
+            val childDeleteCount: Int,
+            val warningMessage: String,
+        )
+        data class ReindexMergeValidationError(
+            val message: String,
+        ) : Dialog
+        data object ReindexMergeProgress : Dialog
+        data class ReindexMergeSummary(
+            val mergedChildren: Int,
+            val movedEntries: Int,
+            val renamedEntries: Int,
+            val skippedEntries: Int,
+            val errorCount: Int,
+            val isPartial: Boolean,
+            val message: String,
+        ) : Dialog
     }
 
     // SY -->

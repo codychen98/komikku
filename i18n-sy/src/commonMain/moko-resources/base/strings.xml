@@ -393,6 +393,19 @@
     <!-- Entry Info -->
     <string name="az_recommends">See Recommendations</string>
     <string name="merge">Merge</string>
+    <string name="reindex_merge">Reindex Merge</string>
+    <string name="reindex_merge_select_parent_title">Select parent manga</string>
+    <string name="reindex_merge_confirm_title">Confirm reindex merge</string>
+    <string name="reindex_merge_children_to_merge">Children to merge: %1$d</string>
+    <string name="reindex_merge_children_deleted_warning">Child entries will be permanently deleted after merge.</string>
+    <string name="reindex_merge_validation_title">Reindex Merge</string>
+    <string name="reindex_merge_progress_message">Merging downloads and reindexing chapters. Please wait...</string>
+    <string name="reindex_merge_summary_partial_title">Reindex Merge Partial</string>
+    <string name="reindex_merge_summary_complete_title">Reindex Merge Complete</string>
+    <string name="reindex_merge_summary_stats">Children merged: %1$d\nEntries moved: %2$d\nCollisions renamed: %3$d\nSkipped: %4$d\nFailures: %5$d</string>
+    <string name="reindex_merge_select_parent_error">Select a parent manga before continuing.</string>
+    <string name="reindex_merge_partial_retry_message">Reindex merge completed with partial issues. Retry the affected entries and run Reindex Merge again.</string>
+    <string name="reindex_merge_success_message">Reindex merge completed successfully.</string>
     <string name="merge_with_another_source">Merge With Another</string>
     <string name="entry_merged">Entry merged!</string>
     <string name="failed_merge">Failed to merge entry: %1$s</string>

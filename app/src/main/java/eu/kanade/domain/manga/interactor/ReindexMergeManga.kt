@@ -135,13 +135,31 @@ class ReindexMergeManga(
             }
         }
 
-        return if (hasBlockingIssue) {
+        val cleanedReport = if (cleanupEmptyChildDir(childDir)) {
             movedReport
         } else {
             movedReport.copy(
-                fullyMergedChildIds = movedReport.fullyMergedChildIds + child.id,
+                skippedEntries = movedReport.skippedEntries + "${child.title}: failed to delete empty source folder",
             )
         }
+
+        return if (hasBlockingIssue) {
+            cleanedReport
+        } else {
+            cleanedReport.copy(
+                fullyMergedChildIds = cleanedReport.fullyMergedChildIds + child.id,
+            )
+        }
+    }
+
+    private fun cleanupEmptyChildDir(childDir: UniFile): Boolean {
+        val remainingEntries = childDir.listFiles()
+            .orEmpty()
+            .filterNot { entry -> entry.name?.endsWith(Downloader.TMP_DIR_SUFFIX) == true }
+        if (remainingEntries.isNotEmpty()) {
+            return true
+        }
+        return childDir.delete()
     }
 
     private fun copyEntry(source: UniFile, destinationDir: UniFile, destinationName: String): Boolean {

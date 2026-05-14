@@ -1,6 +1,8 @@
 package eu.kanade.domain
 
 import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
+import eu.kanade.domain.chapter.interactor.ChapterDownloadComicInfoReader
+import eu.kanade.domain.chapter.interactor.CleanupOrphanedDuplicateChapters
 import eu.kanade.domain.chapter.interactor.RestoreOrphanedChapters
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
@@ -175,7 +177,9 @@ class DomainModule : InjektModule {
         addFactory { SyncChaptersWithSource(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         addFactory { GetAvailableScanlators(get()) }
         addFactory { FilterChaptersForDownload(get(), get(), get(), get()) }
-        addFactory { RestoreOrphanedChapters(get(), get(), get(), get(), get()) }
+        addSingleton { ChapterDownloadComicInfoReader(get(), get()) }
+        addFactory { RestoreOrphanedChapters(get(), get(), get(), get(), get(), get()) }
+        addFactory { CleanupOrphanedDuplicateChapters(get(), get(), get(), get(), get(), get()) }
 
         addSingletonFactory<HistoryRepository> { HistoryRepositoryImpl(get()) }
         addFactory { GetHistory(get()) }

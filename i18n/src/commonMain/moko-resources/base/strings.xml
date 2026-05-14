@@ -593,6 +593,7 @@
     <string name="pref_restore_orphaned_chapters">Restore missing downloaded chapters</string>
     <string name="pref_restore_orphaned_chapters_summary">Scans download folders and restores chapters that exist on disk but are missing from the chapter list</string>
     <string name="restore_orphaned_chapters_success">Restored %1$d missing chapter(s)</string>
+    <string name="cleanup_duplicate_orphan_chapters_success">Removed %1$d duplicate orphan chapter(s)</string>
     <string name="restore_orphaned_chapters_none">No missing downloaded chapters found</string>
     <string name="export">Export</string>
     <string name="library_list">Library List</string>

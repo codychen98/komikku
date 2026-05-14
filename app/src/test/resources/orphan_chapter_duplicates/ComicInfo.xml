@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ComicInfo xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Title>Fixture chapter title</Title>
+  <Series>Fixture series</Series>
+  <Number>1</Number>
+  <Summary>Minimal ComicInfo for orphan-folder matching tests; content is synthetic.</Summary>
+  <Web>https://example.test/photo/287058</Web>
+</ComicInfo>

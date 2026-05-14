@@ -1,5 +1,8 @@
 package tachiyomi.core.common.util.system
 
+import java.net.URI
+import java.net.URISyntaxException
+
 /**
  * Utility functions for URL handling and validation
  */
@@ -114,5 +117,43 @@ object UrlUtils {
         val trimmedUrl = url.trim()
         return trimmedUrl.startsWith("http://", ignoreCase = true) ||
             trimmedUrl.startsWith("https://", ignoreCase = true)
+    }
+
+    /**
+     * Path-centric key for comparing a ComicInfo `<Web>` URL with a database `chapter.url`.
+     * Scheme and host are ignored so pairs like `/photo/287058` and `https://example.test/photo/287058`
+     * collide on purpose. Query and fragment are included when present. Does not log [raw].
+     *
+     * @return null when [raw] is blank, is an `orphaned://` synthetic row, uses an unsupported shape,
+     * or cannot be parsed.
+     */
+    fun chapterContentUrlMatchKey(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val trimmed = raw.trim()
+        if (trimmed.startsWith("orphaned://", ignoreCase = true)) return null
+
+        val withScheme: String = when {
+            trimmed.startsWith("http://", ignoreCase = true) ||
+                trimmed.startsWith("https://", ignoreCase = true) -> trimmed
+            trimmed.startsWith("//") -> "https:$trimmed"
+            trimmed.startsWith("/") -> "https://_." + trimmed
+            trimmed.contains("://") || trimmed.contains(':') -> return null
+            else -> "https://_/$trimmed"
+        }
+
+        return try {
+            val uri = URI(withScheme.replace(" ", "%20")).normalize()
+            buildString {
+                append(uri.path.orEmpty())
+                if (uri.query != null) {
+                    append('?').append(uri.query)
+                }
+                if (uri.fragment != null) {
+                    append('#').append(uri.fragment)
+                }
+            }.ifBlank { null }
+        } catch (_: URISyntaxException) {
+            null
+        }
     }
 }

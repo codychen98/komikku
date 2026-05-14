@@ -15,6 +15,7 @@ import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.core.preference.asState
 import eu.kanade.core.util.fastFilterNot
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.chapter.interactor.CleanupOrphanedDuplicateChapters
 import eu.kanade.domain.chapter.interactor.RestoreOrphanedChapters
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.manga.interactor.SmartSearchMerge
@@ -138,6 +139,7 @@ class LibraryScreenModel(
     private val getNextChapters: GetNextChapters = Injekt.get(),
     private val getChaptersByMangaId: GetChaptersByMangaId = Injekt.get(),
     private val restoreOrphanedChapters: RestoreOrphanedChapters = Injekt.get(),
+    private val cleanupOrphanedDuplicateChapters: CleanupOrphanedDuplicateChapters = Injekt.get(),
     private val setReadStatus: SetReadStatus = Injekt.get(),
     private val updateManga: UpdateManga = Injekt.get(),
     private val deleteMangaById: DeleteMangaById = Injekt.get(),
@@ -1560,6 +1562,7 @@ class LibraryScreenModel(
                 is ReindexMergeManga.MoveResult.Partial -> {
                     downloadCache.invalidateCache()
                     restoreOrphanedChapters.await()
+                    cleanupOrphanedDuplicateChapters.await()
                     val deletedChildren = deleteFullyMergedChildren(moveResult.report)
                     mutableState.update {
                         it.copy(
@@ -1578,6 +1581,7 @@ class LibraryScreenModel(
                 is ReindexMergeManga.MoveResult.Success -> {
                     downloadCache.invalidateCache()
                     restoreOrphanedChapters.await()
+                    cleanupOrphanedDuplicateChapters.await()
                     val deletedChildren = deleteFullyMergedChildren(moveResult.report)
                     mutableState.update {
                         it.copy(

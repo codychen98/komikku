@@ -177,7 +177,7 @@ class DomainModule : InjektModule {
         addFactory { SyncChaptersWithSource(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         addFactory { GetAvailableScanlators(get()) }
         addFactory { FilterChaptersForDownload(get(), get(), get(), get()) }
-        addSingleton { ChapterDownloadComicInfoReader(get(), get()) }
+        addSingletonFactory<ChapterDownloadComicInfoReader> { ChapterDownloadComicInfoReader(get(), get()) }
         addFactory { RestoreOrphanedChapters(get(), get(), get(), get(), get(), get()) }
         addFactory { CleanupOrphanedDuplicateChapters(get(), get(), get(), get(), get(), get()) }
 

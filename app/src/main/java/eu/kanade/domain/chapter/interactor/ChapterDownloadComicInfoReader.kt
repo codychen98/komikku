@@ -5,9 +5,7 @@ import com.hippo.unifile.UniFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mihon.core.archive.archiveReader
-import nl.adaptivity.xmlutil.core.AndroidXmlReader
 import nl.adaptivity.xmlutil.serialization.XML
-import nl.adaptivity.xmlutil.serialization.decodeFromReader
 import tachiyomi.core.metadata.comicinfo.COMIC_INFO_FILE
 import tachiyomi.core.metadata.comicinfo.ComicInfo
 import java.io.InputStream
@@ -33,8 +31,7 @@ class ChapterDownloadComicInfoReader(
     }
 
     private fun decodeComicInfo(stream: InputStream): ComicInfo {
-        AndroidXmlReader(stream, StandardCharsets.UTF_8.name()).use { reader ->
-            return xml.decodeFromReader<ComicInfo>(reader)
-        }
+        val text = stream.bufferedReader(StandardCharsets.UTF_8).readText()
+        return xml.decodeFromString(ComicInfo.serializer(), text)
     }
 }

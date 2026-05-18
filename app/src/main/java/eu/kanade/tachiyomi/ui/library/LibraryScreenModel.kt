@@ -1533,6 +1533,7 @@ class LibraryScreenModel(
             )
         }
         screenModelScope.launchNonCancellable {
+            val mergeMangaIds = setOf(dialog.parent.id)
             val moveResult = reindexMergeManga.moveChildDownloads(dialog.parent, dialog.children)
             suspend fun deleteFullyMergedChildren(report: ReindexMergeManga.MoveReport): Int {
                 val childIds = report.fullyMergedChildIds
@@ -1561,8 +1562,8 @@ class LibraryScreenModel(
                 }
                 is ReindexMergeManga.MoveResult.Partial -> {
                     downloadCache.invalidateCache()
-                    restoreOrphanedChapters.await()
-                    cleanupOrphanedDuplicateChapters.await()
+                    restoreOrphanedChapters.await(mergeMangaIds)
+                    cleanupOrphanedDuplicateChapters.await(mergeMangaIds)
                     val deletedChildren = deleteFullyMergedChildren(moveResult.report)
                     mutableState.update {
                         it.copy(
@@ -1580,8 +1581,8 @@ class LibraryScreenModel(
                 }
                 is ReindexMergeManga.MoveResult.Success -> {
                     downloadCache.invalidateCache()
-                    restoreOrphanedChapters.await()
-                    cleanupOrphanedDuplicateChapters.await()
+                    restoreOrphanedChapters.await(mergeMangaIds)
+                    cleanupOrphanedDuplicateChapters.await(mergeMangaIds)
                     val deletedChildren = deleteFullyMergedChildren(moveResult.report)
                     mutableState.update {
                         it.copy(

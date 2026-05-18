@@ -178,8 +178,8 @@ class DomainModule : InjektModule {
         addFactory { GetAvailableScanlators(get()) }
         addFactory { FilterChaptersForDownload(get(), get(), get(), get()) }
         addSingletonFactory<ChapterDownloadComicInfoReader> { ChapterDownloadComicInfoReader(get(), get()) }
-        addFactory { RestoreOrphanedChapters(get(), get(), get(), get(), get(), get()) }
-        addFactory { CleanupOrphanedDuplicateChapters(get(), get(), get(), get(), get(), get()) }
+        addFactory { RestoreOrphanedChapters(get(), get(), get(), get(), get(), get(), get()) }
+        addFactory { CleanupOrphanedDuplicateChapters(get(), get(), get(), get(), get(), get(), get()) }
 
         addSingletonFactory<HistoryRepository> { HistoryRepositoryImpl(get()) }
         addFactory { GetHistory(get()) }

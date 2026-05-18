@@ -9,6 +9,8 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.manga.interactor.GetAllManga
+import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.isLocal
 
@@ -17,7 +19,8 @@ import tachiyomi.source.local.isLocal
  * [eu.kanade.tachiyomi.data.download.DownloadProvider.getValidChapterDirNames] for chapters already
  * in the database. Each such path becomes a new chapter row with `url` prefixed by `orphaned://`.
  *
- * This interactor is invoked after cache invalidation by [eu.kanade.tachiyomi.ui.download.reindexDownloads].
+ * This interactor is invoked after cache invalidation by [eu.kanade.tachiyomi.ui.download.reindexDownloads]
+ * (full library) and after reindex merge (parent manga only).
  * When [eu.kanade.tachiyomi.data.download.DownloadProvider.getChapterDirName] includes a hash of the
  * chapter URL and the DB `url` later drifts, a legitimate download folder can be misclassified as
  * orphan. See `roadmap/duplicated chapters/orphan_chapter_duplicates_implementation.md`.
@@ -28,87 +31,97 @@ import tachiyomi.source.local.isLocal
  */
 class RestoreOrphanedChapters(
     private val getAllManga: GetAllManga,
+    private val getManga: GetManga,
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val chapterRepository: ChapterRepository,
     private val downloadProvider: DownloadProvider,
     private val sourceManager: SourceManager,
     private val comicInfoReader: ChapterDownloadComicInfoReader,
 ) {
-    suspend fun await(): Int {
-        var restored = 0
-        val allManga = getAllManga.await()
+    /**
+     * @param mangaIds When null, scans every manga in the library. When non-null, only those IDs
+     *   are processed (after reindex merge, only the parent id is passed).
+     */
+    suspend fun await(mangaIds: Collection<Long>? = null): Int {
+        return resolveMangaList(mangaIds).sumOf { restoreForManga(it) }
+    }
 
-        for (manga in allManga) {
-            val source = sourceManager.getOrStub(manga.source)
-            if (source.isLocal()) continue
+    private suspend fun resolveMangaList(mangaIds: Collection<Long>?): List<Manga> {
+        if (mangaIds == null) {
+            return getAllManga.await()
+        }
+        return mangaIds.distinct().mapNotNull { getManga.await(it) }
+    }
 
-            val mangaDir = downloadProvider.findMangaDir(manga.ogTitle, source) ?: continue
-            val dbChapters = getChaptersByMangaId.await(manga.id)
+    private suspend fun restoreForManga(manga: Manga): Int {
+        val source = sourceManager.getOrStub(manga.source)
+        if (source.isLocal()) return 0
 
-            val knownFolderNames = dbChapters.flatMap { chapter ->
-                downloadProvider.getValidChapterDirNames(chapter.name, chapter.scanlator, chapter.url)
-            }.toHashSet()
+        val mangaDir = downloadProvider.findMangaDir(manga.ogTitle, source) ?: return 0
+        val dbChapters = getChaptersByMangaId.await(manga.id)
 
-            val knownChapterNumbers = dbChapters
-                .filter { !it.url.startsWith("orphaned://") && it.isRecognizedNumber }
-                .map { it.chapterNumber }
-                .toHashSet()
+        val knownFolderNames = dbChapters.flatMap { chapter ->
+            downloadProvider.getValidChapterDirNames(chapter.name, chapter.scanlator, chapter.url)
+        }.toHashSet()
 
-            val candidateFiles = mangaDir.listFiles().orEmpty()
-                .filter { file ->
-                    val fileName = file.name ?: return@filter false
-                    (file.isDirectory || fileName.endsWith(".cbz")) &&
-                        fileName !in knownFolderNames &&
-                        !fileName.endsWith(Downloader.TMP_DIR_SUFFIX)
-                }
+        val knownChapterNumbers = dbChapters
+            .filter { !it.url.startsWith("orphaned://") && it.isRecognizedNumber }
+            .map { it.chapterNumber }
+            .toHashSet()
 
-            val orphanedChapters = mutableListOf<Chapter>()
-            for (dir in candidateFiles) {
-                val fileName = dir.name ?: continue
-                val chapterName = if (fileName.endsWith(".cbz")) {
-                    fileName.dropLast(4)
-                } else {
-                    if (!dir.isDirectory) continue
-                    val resolved = downloadProvider.resolveChapterImageDir(dir)
-                    if (!resolved.isValid) continue
-                    resolved.chapterName
-                }
-
-                val chapterNumber = ChapterRecognition.parseChapterNumber(
-                    manga.title,
-                    chapterName,
-                    -1.0,
-                )
-                if (chapterNumber >= 0 && chapterNumber in knownChapterNumbers) continue
-
-                val comicInfo = readComicInfoFromDownloadEntry(dir)
-                when (OrphanChapterComicInfoLink.matchCatalogChapterFromComicInfo(comicInfo, dbChapters)) {
-                    is OrphanChapterComicInfoLink.ComicInfoWebChapterMatch.Unique,
-                    is OrphanChapterComicInfoLink.ComicInfoWebChapterMatch.Ambiguous,
-                    -> continue
-                    is OrphanChapterComicInfoLink.ComicInfoWebChapterMatch.None -> Unit
-                }
-
-                orphanedChapters.add(
-                    Chapter.create().copy(
-                        mangaId = manga.id,
-                        url = "orphaned://$chapterName",
-                        name = chapterName,
-                        chapterNumber = chapterNumber,
-                        sourceOrder = -1L,
-                        dateFetch = dir.lastModified(),
-                        dateUpload = 0L,
-                    ),
-                )
+        val candidateFiles = mangaDir.listFiles().orEmpty()
+            .filter { file ->
+                val fileName = file.name ?: return@filter false
+                (file.isDirectory || fileName.endsWith(".cbz")) &&
+                    fileName !in knownFolderNames &&
+                    !fileName.endsWith(Downloader.TMP_DIR_SUFFIX)
             }
 
-            if (orphanedChapters.isNotEmpty()) {
-                chapterRepository.addAll(orphanedChapters)
-                restored += orphanedChapters.size
+        val orphanedChapters = mutableListOf<Chapter>()
+        for (dir in candidateFiles) {
+            val fileName = dir.name ?: continue
+            val chapterName = if (fileName.endsWith(".cbz")) {
+                fileName.dropLast(4)
+            } else {
+                if (!dir.isDirectory) continue
+                val resolved = downloadProvider.resolveChapterImageDir(dir)
+                if (!resolved.isValid) continue
+                resolved.chapterName
             }
+
+            val chapterNumber = ChapterRecognition.parseChapterNumber(
+                manga.title,
+                chapterName,
+                -1.0,
+            )
+            if (chapterNumber >= 0 && chapterNumber in knownChapterNumbers) continue
+
+            val comicInfo = readComicInfoFromDownloadEntry(dir)
+            when (OrphanChapterComicInfoLink.matchCatalogChapterFromComicInfo(comicInfo, dbChapters)) {
+                is OrphanChapterComicInfoLink.ComicInfoWebChapterMatch.Unique,
+                is OrphanChapterComicInfoLink.ComicInfoWebChapterMatch.Ambiguous,
+                -> continue
+                is OrphanChapterComicInfoLink.ComicInfoWebChapterMatch.None -> Unit
+            }
+
+            orphanedChapters.add(
+                Chapter.create().copy(
+                    mangaId = manga.id,
+                    url = "orphaned://$chapterName",
+                    name = chapterName,
+                    chapterNumber = chapterNumber,
+                    sourceOrder = -1L,
+                    dateFetch = dir.lastModified(),
+                    dateUpload = 0L,
+                ),
+            )
         }
 
-        return restored
+        if (orphanedChapters.isEmpty()) {
+            return 0
+        }
+        chapterRepository.addAll(orphanedChapters)
+        return orphanedChapters.size
     }
 
     private suspend fun readComicInfoFromDownloadEntry(file: UniFile): ComicInfo? =

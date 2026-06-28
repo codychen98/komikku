@@ -4,18 +4,22 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.MetadataMangasPage
 import exh.md.handlers.SimilarHandler
 import exh.md.service.MangaDexService
 import exh.md.service.SimilarService
+import exh.md.utils.MdConstants
 import exh.md.utils.MdLang
 import exh.recs.sources.RecommendationPagingSource
 import exh.recs.sources.RecommendationSource
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import okhttp3.Headers
 import tachiyomi.data.source.NoResultsException
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.sy.SYMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -53,8 +57,20 @@ internal class MangaDexSimilarPagingSource(
         } ?: MdLang.ENGLISH
     }
 
+    private val headers by lazy {
+        Injekt.get<SourceManager>()
+            .get(recommendationSource.id)
+            ?.let { it as? HttpSource }
+            ?.headers
+            ?: Headers.Builder()
+                .add("Referer", "${MdConstants.baseUrl}/")
+                .add("Origin", MdConstants.baseUrl)
+                .set("User-Agent", Injekt.get<NetworkHelper>().defaultUserAgentProvider())
+                .build()
+    }
+
     private val mangadexService by lazy {
-        MangaDexService(client)
+        MangaDexService(client, headers)
     }
     private val similarService by lazy {
         SimilarService(client)

@@ -96,7 +96,7 @@ class MangaDex(delegate: HttpSource, val context: Context) :
     private fun preferExtensionLangTitle() = sourcePreferences.getBoolean(getPreferExtensionLangTitlePrefKey(mdLang.extLang), true)
 
     private val mangadexService by lazy {
-        MangaDexService(client)
+        MangaDexService(client, headers)
     }
     private val mangadexAuthService by lazy {
         MangaDexAuthService(baseHttpClient, headers)

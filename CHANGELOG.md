@@ -13,9 +13,13 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 ## [Unreleased]
 ### Added
 - Add support for `tachiyomix` extension index format (extension stores with `index.pb`)
+- Add support for `tachiyomix` 1.6 extensions
 
 ### Changed
 - Rename extension repos to extension stores
+
+### Fixed
+- Fix app not reading `tachiyomix.extensionLib` extension metadata
 
 ## [v0.19.9] - 2026-04-11
 ### Fixed

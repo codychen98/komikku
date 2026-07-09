@@ -489,13 +489,27 @@ class SyncChaptersWithSource(
 
         if (!hasCompatibleScanlator(candidate.scanlator, incoming.scanlator)) return false
 
-        // Keep number-based reconciliation strict to avoid incorrect merges.
-        return hasCompatibleChapterName(candidate.name, incoming.name)
+        return hasCompatibleChapterIdentity(candidate, incoming)
     }
 
     private fun hasCompatibleScanlator(existing: String?, incoming: String?): Boolean {
         if (existing.isNullOrBlank() || incoming.isNullOrBlank()) return true
         return existing.equals(incoming, ignoreCase = true)
+    }
+
+    private fun hasCompatibleChapterIdentity(stale: Chapter, other: Chapter): Boolean {
+        if (!hasCompatibleChapterNumber(stale, other)) return false
+
+        if (
+            isStaleDuplicateIndicator(stale) &&
+            stale.isRecognizedNumber &&
+            other.isRecognizedNumber &&
+            stale.chapterNumber == other.chapterNumber
+        ) {
+            return true
+        }
+
+        return hasCompatibleChapterName(stale.name, other.name)
     }
 
     private fun hasCompatibleChapterName(existing: String, incoming: String): Boolean {
@@ -508,6 +522,15 @@ class SyncChaptersWithSource(
         val lengthDelta = abs(existingNormalized.length - incomingNormalized.length)
         return lengthDelta <= 8 &&
             (existingNormalized.contains(incomingNormalized) || incomingNormalized.contains(existingNormalized))
+    }
+
+    private fun isStaleDuplicateIndicator(chapter: Chapter): Boolean {
+        return chapter.url.startsWith("orphaned://", ignoreCase = true) ||
+            isHashSuffixedChapterName(chapter.name)
+    }
+
+    private fun isHashSuffixedChapterName(name: String): Boolean {
+        return name.trim().matches(Regex(".*_[a-f0-9]{6}$", RegexOption.IGNORE_CASE))
     }
 
     private fun hasCompatibleChapterNumber(candidate: Chapter, incoming: Chapter): Boolean {
@@ -538,14 +561,15 @@ class SyncChaptersWithSource(
         val withoutUrlHashSuffix = value
             .trim()
             .replace(Regex("_[a-f0-9]{6}$", RegexOption.IGNORE_CASE), "")
-        return withoutUrlHashSuffix.lowercase().replace(Regex("[^a-z0-9]"), "")
+        val withoutChapterPrefix = withoutUrlHashSuffix
+            .replace(Regex("^(chapter|ch|episode|ep|vol|volume)[.\\s_-]*", RegexOption.IGNORE_CASE), "")
+        return withoutChapterPrefix.lowercase().replace(Regex("[^a-z0-9]"), "")
     }
 
     private fun isCanonicalDuplicateMatch(stale: Chapter, canonical: Chapter): Boolean {
         if (stale.url == canonical.url) return false
-        if (!hasCompatibleChapterNumber(stale, canonical)) return false
         if (!hasCompatibleScanlator(stale.scanlator, canonical.scanlator)) return false
-        return hasCompatibleChapterName(stale.name, canonical.name)
+        return hasCompatibleChapterIdentity(stale, canonical)
     }
 
     private fun minDateFetch(first: Long, second: Long): Long {
@@ -576,7 +600,7 @@ class SyncChaptersWithSource(
                 sourceId = manga.source,
             )
             val isOrphaned = stale.url.startsWith("orphaned://", ignoreCase = true)
-            val isHashSuffixed = stale.name.trim().matches(Regex(".*_[a-f0-9]{6}$", RegexOption.IGNORE_CASE))
+            val isHashSuffixed = isHashSuffixedChapterName(stale.name)
             if (!isDownloaded && !isOrphaned) return@forEach
             if (!isOrphaned && !isHashSuffixed) return@forEach
 

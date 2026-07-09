@@ -79,6 +79,8 @@ class SyncChaptersWithSource(
         val newChapters = mutableListOf<Chapter>()
         val updatedChapters = mutableListOf<Chapter>()
         val reconciledDbChapterIdsToRemove = mutableSetOf<Long>()
+        val staleDownloadedDuplicateChapterIdsToRemove = mutableSetOf<Long>()
+        val duplicateCanonicalChapterUpdates = mutableMapOf<Long, ChapterUpdate>()
         val removedByUrlChapters = dbChapters.filterNot { dbChapter ->
             sourceChapters.any { sourceChapter ->
                 dbChapter.url == sourceChapter.url
@@ -173,8 +175,23 @@ class SyncChaptersWithSource(
 
         val removedChapters = removedByUrlChapters.filterNot { it.id in reconciledDbChapterIdsToRemove }
 
+        reconcileStableDownloadedDuplicates(
+            dbChapters = dbChapters,
+            sourceChapters = sourceChapters,
+            manga = manga,
+            source = source,
+            staleIdsToRemove = staleDownloadedDuplicateChapterIdsToRemove,
+            canonicalUpdates = duplicateCanonicalChapterUpdates,
+        )
+
         // Return if there's nothing to add, delete, or update to avoid unnecessary db transactions.
-        if (newChapters.isEmpty() && removedChapters.isEmpty() && updatedChapters.isEmpty()) {
+        if (
+            newChapters.isEmpty() &&
+            removedChapters.isEmpty() &&
+            updatedChapters.isEmpty() &&
+            staleDownloadedDuplicateChapterIdsToRemove.isEmpty() &&
+            duplicateCanonicalChapterUpdates.isEmpty()
+        ) {
             if (manualFetch || manga.fetchInterval == 0 || manga.nextUpdate < fetchWindow.first) {
                 updateManga.awaitUpdateFetchInterval(
                     manga,
@@ -186,8 +203,6 @@ class SyncChaptersWithSource(
         }
 
         val changedOrDuplicateReadUrls = mutableSetOf<String>()
-        val staleDownloadedDuplicateChapterIdsToRemove = mutableSetOf<Long>()
-        val duplicateCanonicalChapterUpdates = mutableMapOf<Long, ChapterUpdate>()
 
         val deletedChapterNumbers = TreeSet<Double>()
         val deletedReadChapterNumbers = TreeSet<Double>()
@@ -537,5 +552,59 @@ class SyncChaptersWithSource(
         if (first <= 0L) return second
         if (second <= 0L) return first
         return min(first, second)
+    }
+
+    private suspend fun reconcileStableDownloadedDuplicates(
+        dbChapters: List<Chapter>,
+        sourceChapters: List<Chapter>,
+        manga: Manga,
+        source: Source,
+        staleIdsToRemove: MutableSet<Long>,
+        canonicalUpdates: MutableMap<Long, ChapterUpdate>,
+    ) {
+        val sourceUrls = sourceChapters.asSequence().map { it.url }.toHashSet()
+        if (sourceUrls.isEmpty()) return
+
+        dbChapters.forEach { stale ->
+            if (stale.id in staleIdsToRemove) return@forEach
+
+            val isDownloaded = downloadManager.isChapterDownloaded(
+                chapterName = stale.name,
+                chapterScanlator = stale.scanlator,
+                chapterUrl = stale.url,
+                mangaTitle = manga.ogTitle,
+                sourceId = manga.source,
+            )
+            val isOrphaned = stale.url.startsWith("orphaned://", ignoreCase = true)
+            val isHashSuffixed = stale.name.trim().matches(Regex(".*_[a-f0-9]{6}$", RegexOption.IGNORE_CASE))
+            if (!isDownloaded && !isOrphaned) return@forEach
+            if (!isOrphaned && !isHashSuffixed) return@forEach
+
+            val matches = dbChapters.filter { canonical ->
+                canonical.id != stale.id &&
+                    canonical.id !in staleIdsToRemove &&
+                    canonical.url in sourceUrls &&
+                    isCanonicalDuplicateMatch(stale = stale, canonical = canonical)
+            }
+            if (matches.size != 1) return@forEach
+
+            val canonical = matches.first()
+            if (!source.isLocal()) {
+                downloadManager.renameChapter(source, manga, stale, canonical)
+            }
+            val currentUpdate = canonicalUpdates[canonical.id]
+            val baseRead = currentUpdate?.read ?: canonical.read
+            val baseBookmark = currentUpdate?.bookmark ?: canonical.bookmark
+            val baseLastPageRead = currentUpdate?.lastPageRead ?: canonical.lastPageRead
+            val baseDateFetch = currentUpdate?.dateFetch ?: canonical.dateFetch
+            canonicalUpdates[canonical.id] = ChapterUpdate(
+                id = canonical.id,
+                read = baseRead || stale.read,
+                bookmark = baseBookmark || stale.bookmark,
+                lastPageRead = max(baseLastPageRead, stale.lastPageRead),
+                dateFetch = minDateFetch(baseDateFetch, stale.dateFetch),
+            )
+            staleIdsToRemove.add(stale.id)
+        }
     }
 }

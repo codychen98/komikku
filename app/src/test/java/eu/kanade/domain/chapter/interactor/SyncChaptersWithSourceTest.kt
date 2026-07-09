@@ -683,6 +683,106 @@ class SyncChaptersWithSourceTest {
         coVerify(exactly = 0) { chapterRepository.removeChaptersWithIds(match { 61L in it }) }
     }
 
+    @Test
+    fun `stable no-op sync should still cleanup hash-suffixed downloaded duplicate`() = runBlocking {
+        val downloadManager = mockk<DownloadManager>()
+        val downloadProvider = mockk<DownloadProvider>()
+        val chapterRepository = mockk<ChapterRepository>()
+        val updateManga = mockk<UpdateManga>()
+        val updateChapter = mockk<UpdateChapter>()
+        val getChaptersByMangaId = mockk<GetChaptersByMangaId>()
+        val getExcludedScanlators = mockk<GetExcludedScanlators>()
+        val libraryPreferences = mockk<LibraryPreferences>()
+        val markDuplicatePreference = mockk<Preference<Set<String>>>()
+
+        val staleDownloaded = Chapter.create().copy(
+            id = 91,
+            mangaId = 10,
+            read = true,
+            bookmark = true,
+            lastPageRead = 22,
+            chapterNumber = 5.2,
+            name = "Chapter 5.2_ When it rains (Part 2)_02200e",
+            url = "/chapter-5-2-old",
+        )
+        val canonicalStable = Chapter.create().copy(
+            id = 92,
+            mangaId = 10,
+            read = false,
+            bookmark = false,
+            lastPageRead = 0,
+            chapterNumber = 5.2,
+            name = "Ch. 5.2 - When it rains (Part 2)",
+            url = "/chapter-5-2-new",
+        )
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val sourceOld = SChapter.create().apply {
+            name = "Chapter 5.2_ When it rains (Part 2)_02200e"
+            url = "/chapter-5-2-old"
+            chapter_number = 5.2f
+        }
+        val sourceNew = SChapter.create().apply {
+            name = "Ch. 5.2 - When it rains (Part 2)"
+            url = "/chapter-5-2-new"
+            chapter_number = 5.2f
+        }
+
+        coEvery { getChaptersByMangaId.await(manga.id) } returns listOf(staleDownloaded, canonicalStable)
+        every {
+            downloadManager.isChapterDownloaded(
+                chapterName = any(),
+                chapterScanlator = any(),
+                chapterUrl = any(),
+                mangaTitle = any(),
+                sourceId = any(),
+            )
+        } answers {
+            arg<String>(2) == "/chapter-5-2-old"
+        }
+        coEvery { downloadManager.renameChapter(any(), any(), any(), any()) } returns Unit
+        coEvery { chapterRepository.removeChaptersWithIds(any()) } returns Unit
+        coEvery { chapterRepository.addAll(any()) } answers { firstArg() }
+        coEvery { updateChapter.awaitAll(any()) } returns Unit
+        coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
+        coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
+        every { markDuplicatePreference.get() } returns emptySet()
+
+        val sync = SyncChaptersWithSource(
+            downloadManager = downloadManager,
+            downloadProvider = downloadProvider,
+            chapterRepository = chapterRepository,
+            shouldUpdateDbChapter = ShouldUpdateDbChapter(),
+            updateManga = updateManga,
+            updateChapter = updateChapter,
+            getChaptersByMangaId = getChaptersByMangaId,
+            getExcludedScanlators = getExcludedScanlators,
+            libraryPreferences = libraryPreferences,
+        )
+
+        sync.await(
+            rawSourceChapters = listOf(sourceOld, sourceNew),
+            manga = manga,
+            source = localSource(),
+            manualFetch = false,
+        )
+
+        coVerify(exactly = 1) { chapterRepository.removeChaptersWithIds(match { 91L in it }) }
+        coVerify(exactly = 1) {
+            updateChapter.awaitAll(
+                match { updates ->
+                    updates.any {
+                        it.id == 92L &&
+                            it.read == true &&
+                            it.bookmark == true &&
+                            it.lastPageRead == 22L
+                    }
+                },
+            )
+        }
+    }
+
     private fun chapter(
         id: Long,
         read: Boolean,

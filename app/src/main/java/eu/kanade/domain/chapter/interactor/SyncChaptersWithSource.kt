@@ -26,6 +26,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.source.local.isLocal
 import java.lang.Long.max
+import java.lang.Long.min
 import java.time.ZonedDateTime
 import java.util.TreeSet
 import kotlin.math.abs
@@ -179,6 +180,8 @@ class SyncChaptersWithSource(
         }
 
         val changedOrDuplicateReadUrls = mutableSetOf<String>()
+        val staleDownloadedDuplicateChapterIdsToRemove = mutableSetOf<Long>()
+        val duplicateCanonicalChapterUpdates = mutableMapOf<Long, ChapterUpdate>()
 
         val deletedChapterNumbers = TreeSet<Double>()
         val deletedReadChapterNumbers = TreeSet<Double>()
@@ -230,6 +233,68 @@ class SyncChaptersWithSource(
             chapter
         }
 
+        // Merge stale downloaded catalog duplicates onto a single canonical source chapter when confident.
+        // This handles "old URL kept as downloaded + new URL fetched" without deleting local-only chapters.
+        run {
+            val sourceUrls = sourceChapters.asSequence().map { it.url }.toHashSet()
+            val canonicalExistingById = dbChapters
+                .asSequence()
+                .filter { it.url in sourceUrls }
+                .associateBy { it.id }
+            val canonicalNewByIndex = updatedToAdd.withIndex()
+                .associateBy({ it.index }, { it.value })
+
+            removedChapters.forEach { removedChapter ->
+                if (!downloadManager.isChapterDownloaded(
+                        chapterName = removedChapter.name,
+                        chapterScanlator = removedChapter.scanlator,
+                        chapterUrl = removedChapter.url,
+                        mangaTitle = manga.ogTitle,
+                        sourceId = manga.source,
+                    )
+                ) {
+                    return@forEach
+                }
+
+                val existingMatches = canonicalExistingById.values.filter { canonical ->
+                    isCanonicalDuplicateMatch(stale = removedChapter, canonical = canonical)
+                }
+                val newMatches = canonicalNewByIndex.filterValues { canonical ->
+                    isCanonicalDuplicateMatch(stale = removedChapter, canonical = canonical)
+                }
+                val totalMatches = existingMatches.size + newMatches.size
+                if (totalMatches != 1) return@forEach
+
+                if (existingMatches.size == 1) {
+                    val canonical = existingMatches.first()
+                    val currentUpdate = duplicateCanonicalChapterUpdates[canonical.id]
+                    val baseRead = currentUpdate?.read ?: canonical.read
+                    val baseBookmark = currentUpdate?.bookmark ?: canonical.bookmark
+                    val baseLastPageRead = currentUpdate?.lastPageRead ?: canonical.lastPageRead
+                    val baseDateFetch = currentUpdate?.dateFetch ?: canonical.dateFetch
+                    duplicateCanonicalChapterUpdates[canonical.id] = ChapterUpdate(
+                        id = canonical.id,
+                        read = baseRead || removedChapter.read,
+                        bookmark = baseBookmark || removedChapter.bookmark,
+                        lastPageRead = max(baseLastPageRead, removedChapter.lastPageRead),
+                        dateFetch = minDateFetch(baseDateFetch, removedChapter.dateFetch),
+                    )
+                } else {
+                    val (idx, canonical) = newMatches.entries.first()
+                    val merged = canonical.copy(
+                        read = canonical.read || removedChapter.read,
+                        bookmark = canonical.bookmark || removedChapter.bookmark,
+                        lastPageRead = max(canonical.lastPageRead, removedChapter.lastPageRead),
+                        dateFetch = minDateFetch(canonical.dateFetch, removedChapter.dateFetch),
+                    )
+                    updatedToAdd = updatedToAdd.toMutableList().also { it[idx] = merged }
+                }
+
+                changedOrDuplicateReadUrls.add(removedChapter.url)
+                staleDownloadedDuplicateChapterIdsToRemove.add(removedChapter.id)
+            }
+        }
+
         // --> EXH (carry over reading progress)
         if (manga.isEhBasedManga()) {
             val hasNewChapters = updatedToAdd.any { it.url !in changedOrDuplicateReadUrls }
@@ -249,7 +314,8 @@ class SyncChaptersWithSource(
         // <-- EXH
 
         if (removedChapters.isNotEmpty()) {
-            val (downloadedRemovedChapters, notDownloadedRemovedChapters) = removedChapters.partition { chapter ->
+            val effectiveRemovedChapters = removedChapters.filterNot { it.id in staleDownloadedDuplicateChapterIdsToRemove }
+            val (downloadedRemovedChapters, notDownloadedRemovedChapters) = effectiveRemovedChapters.partition { chapter ->
                 downloadManager.isChapterDownloaded(
                     chapterName = chapter.name,
                     chapterScanlator = chapter.scanlator,
@@ -273,6 +339,10 @@ class SyncChaptersWithSource(
             if (downloadedUnreadRemovedChapterUpdates.isNotEmpty()) {
                 updateChapter.awaitAll(downloadedUnreadRemovedChapterUpdates)
             }
+        }
+
+        if (staleDownloadedDuplicateChapterIdsToRemove.isNotEmpty()) {
+            chapterRepository.removeChaptersWithIds(staleDownloadedDuplicateChapterIdsToRemove.toList())
         }
 
         // Remove orphaned chapters that are now replaced by real source chapters
@@ -310,6 +380,9 @@ class SyncChaptersWithSource(
         if (updatedChapters.isNotEmpty()) {
             val chapterUpdates = updatedChapters.map { it.toChapterUpdate() }
             updateChapter.awaitAll(chapterUpdates)
+        }
+        if (duplicateCanonicalChapterUpdates.isNotEmpty()) {
+            updateChapter.awaitAll(duplicateCanonicalChapterUpdates.values.toList())
         }
         updateManga.awaitUpdateFetchInterval(manga, now, fetchWindow)
 
@@ -438,5 +511,18 @@ class SyncChaptersWithSource(
             .trim()
             .replace(Regex("_[a-f0-9]{6}$", RegexOption.IGNORE_CASE), "")
         return withoutUrlHashSuffix.lowercase().replace(Regex("[^a-z0-9]"), "")
+    }
+
+    private fun isCanonicalDuplicateMatch(stale: Chapter, canonical: Chapter): Boolean {
+        if (stale.url == canonical.url) return false
+        if (!hasCompatibleChapterNumber(stale, canonical)) return false
+        if (!hasCompatibleScanlator(stale.scanlator, canonical.scanlator)) return false
+        return hasCompatibleChapterName(stale.name, canonical.name)
+    }
+
+    private fun minDateFetch(first: Long, second: Long): Long {
+        if (first <= 0L) return second
+        if (second <= 0L) return first
+        return min(first, second)
     }
 }

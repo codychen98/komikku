@@ -801,7 +801,7 @@ class SyncChaptersWithSourceTest {
             read = true,
             chapterNumber = 5.1,
             name = "Chapter 5.1_ When it Rains (Part 1)_70d265",
-            url = "/chapter-5-1-old",
+            url = "orphaned://Chapter 5.1_ When it Rains (Part 1)_70d265",
         )
         val canonicalStable = Chapter.create().copy(
             id = 102,
@@ -827,9 +827,7 @@ class SyncChaptersWithSourceTest {
                 mangaTitle = any(),
                 sourceId = any(),
             )
-        } answers {
-            arg<String>(2) == "/chapter-5-1-old"
-        }
+        } returns false
         coEvery { downloadManager.renameChapter(any(), any(), any(), any()) } returns Unit
         coEvery { chapterRepository.removeChaptersWithIds(any()) } returns Unit
         coEvery { chapterRepository.addAll(any()) } answers { firstArg() }

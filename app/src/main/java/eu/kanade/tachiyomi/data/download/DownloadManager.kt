@@ -468,16 +468,20 @@ class DownloadManager(
      * @param newChapter the target chapter with the new name.
      */
     suspend fun renameChapter(source: Source, manga: Manga, oldChapter: Chapter, newChapter: Chapter) {
-        val oldNames = provider.getValidChapterDirNames(oldChapter.name, oldChapter.scanlator, oldChapter.url)
         val mangaDir = provider.getMangaDir(/* SY --> */ manga.ogTitle /* SY <-- */, source).getOrElse { e ->
             logcat(LogPriority.ERROR, e) { "Manga download folder doesn't exist. Skipping renaming after source sync" }
             return
         }
 
-        // Assume there's only 1 version of the chapter name formats present
-        val oldDownload = oldNames.asSequence()
-            .mapNotNull { mangaDir.findFile(it) }
-            .firstOrNull() ?: return
+        val oldDownload = if (oldChapter.url.startsWith("orphaned://", ignoreCase = true)) {
+            mangaDir.findFile(oldChapter.name)
+                ?: mangaDir.findFile(oldChapter.name + ".cbz")
+        } else {
+            val oldNames = provider.getValidChapterDirNames(oldChapter.name, oldChapter.scanlator, oldChapter.url)
+            oldNames.asSequence()
+                .mapNotNull { mangaDir.findFile(it) }
+                .firstOrNull()
+        } ?: return
 
         var newName = provider.getChapterDirName(newChapter.name, newChapter.scanlator, newChapter.url)
         if (oldDownload.isFile && oldDownload.extension == "cbz") {
@@ -490,7 +494,7 @@ class DownloadManager(
             cache.removeChapter(oldChapter, manga)
             cache.addChapter(newName, mangaDir, manga)
         } else {
-            logcat(LogPriority.ERROR) { "Could not rename downloaded chapter: ${oldNames.joinToString()}" }
+            logcat(LogPriority.ERROR) { "Could not rename downloaded chapter: ${oldChapter.name}" }
         }
     }
 

@@ -421,10 +421,25 @@ class SyncChaptersWithSource(
         if (!source.isLocal()) {
             val mangaDir = downloadProvider.findMangaDir(manga.ogTitle, source)
             if (mangaDir != null) {
-                val allKnownChapters = dbChapters + updatedToAdd
-                val knownFolderNames = allKnownChapters.flatMap { chapter ->
-                    downloadProvider.getValidChapterDirNames(chapter.name, chapter.scanlator, chapter.url)
-                }.toHashSet()
+                val survivingDbChapters = dbChapters.filter { chapter ->
+                    chapter.id !in reconciledDbChapterIdsToRemove &&
+                        chapter.id !in staleDownloadedDuplicateChapterIdsToRemove
+                }
+                val catalogChapters = survivingDbChapters.filter { chapter ->
+                    !chapter.url.startsWith("orphaned://", ignoreCase = true)
+                }
+                val knownChapterNumbers = catalogChapters
+                    .filter { it.isRecognizedNumber }
+                    .map { it.chapterNumber }
+                    .toHashSet()
+                val allKnownChapters = survivingDbChapters + updatedToAdd
+                val knownFolderNames = buildSet {
+                    allKnownChapters.forEach { chapter ->
+                        addAll(downloadProvider.getValidChapterDirNames(chapter.name, chapter.scanlator, chapter.url))
+                        add(chapter.name)
+                        add("${chapter.name}.cbz")
+                    }
+                }
 
                 val orphanedChapters = mangaDir.listFiles().orEmpty()
                     .filter { file ->
@@ -448,6 +463,23 @@ class SyncChaptersWithSource(
                             chapterName,
                             -1.0,
                         )
+                        if (chapterNumber >= 0 && chapterNumber in knownChapterNumbers) {
+                            return@mapNotNull null
+                        }
+
+                        val folderChapter = Chapter.create().copy(
+                            mangaId = manga.id,
+                            url = "orphaned://$chapterName",
+                            name = chapterName,
+                            chapterNumber = chapterNumber,
+                        )
+                        val hasCatalogMatch = catalogChapters.any { catalog ->
+                            isCanonicalDuplicateMatch(stale = folderChapter, canonical = catalog)
+                        }
+                        if (hasCatalogMatch) {
+                            return@mapNotNull null
+                        }
+
                         Chapter.create().copy(
                             mangaId = manga.id,
                             url = "orphaned://$chapterName",
@@ -498,18 +530,26 @@ class SyncChaptersWithSource(
     }
 
     private fun hasCompatibleChapterIdentity(stale: Chapter, other: Chapter): Boolean {
-        if (!hasCompatibleChapterNumber(stale, other)) return false
+        if (!chaptersShareExactNumber(stale, other)) return false
 
-        if (
-            isStaleDuplicateIndicator(stale) &&
-            stale.isRecognizedNumber &&
-            other.isRecognizedNumber &&
-            stale.chapterNumber == other.chapterNumber
-        ) {
+        if (isStaleDuplicateIndicator(stale)) {
             return true
         }
 
         return hasCompatibleChapterName(stale.name, other.name)
+    }
+
+    private fun chaptersShareExactNumber(first: Chapter, second: Chapter): Boolean {
+        val firstNumber = chapterNumberForMatch(first)
+        val secondNumber = chapterNumberForMatch(second)
+        return firstNumber != null && secondNumber != null && firstNumber == secondNumber
+    }
+
+    private fun chapterNumberForMatch(chapter: Chapter): Double? {
+        if (chapter.isRecognizedNumber) {
+            return chapter.chapterNumber
+        }
+        return extractPrimaryChapterNumber(chapter.name)
     }
 
     private fun hasCompatibleChapterName(existing: String, incoming: String): Boolean {
@@ -607,6 +647,7 @@ class SyncChaptersWithSource(
             val matches = dbChapters.filter { canonical ->
                 canonical.id != stale.id &&
                     canonical.id !in staleIdsToRemove &&
+                    !isStaleDuplicateIndicator(canonical) &&
                     canonical.url in sourceUrls &&
                     isCanonicalDuplicateMatch(stale = stale, canonical = canonical)
             }

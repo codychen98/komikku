@@ -375,8 +375,7 @@ class SyncChaptersWithSource(
         incoming: Chapter,
         manga: Manga,
     ): Boolean {
-        if (!incoming.isRecognizedNumber || !candidate.isRecognizedNumber) return false
-        if (candidate.chapterNumber != incoming.chapterNumber) return false
+        if (!hasCompatibleChapterNumber(candidate, incoming)) return false
 
         val isOrphanedCandidate = candidate.url.startsWith("orphaned://")
         val isDownloadedRetainedCandidate = downloadManager.isChapterDownloaded(
@@ -400,8 +399,8 @@ class SyncChaptersWithSource(
     }
 
     private fun hasCompatibleChapterName(existing: String, incoming: String): Boolean {
-        val existingNormalized = existing.lowercase().replace(Regex("[^a-z0-9]"), "")
-        val incomingNormalized = incoming.lowercase().replace(Regex("[^a-z0-9]"), "")
+        val existingNormalized = normalizeChapterNameForMatch(existing)
+        val incomingNormalized = normalizeChapterNameForMatch(incoming)
         if (existingNormalized.isEmpty() || incomingNormalized.isEmpty()) return false
 
         if (existingNormalized == incomingNormalized) return true
@@ -415,5 +414,29 @@ class SyncChaptersWithSource(
         val lengthDelta = abs(existingNormalized.length - incomingNormalized.length)
         return lengthDelta <= 8 &&
             (existingNormalized.contains(incomingNormalized) || incomingNormalized.contains(existingNormalized))
+    }
+
+    private fun hasCompatibleChapterNumber(candidate: Chapter, incoming: Chapter): Boolean {
+        if (candidate.isRecognizedNumber && incoming.isRecognizedNumber) {
+            return candidate.chapterNumber == incoming.chapterNumber
+        }
+
+        // Fallback for sources/folder names that break number recognition but still include chapter digits.
+        val candidateTokens = extractNumberTokens(candidate.name)
+        val incomingTokens = extractNumberTokens(incoming.name)
+        return candidateTokens.isNotEmpty() &&
+            incomingTokens.isNotEmpty() &&
+            candidateTokens.intersect(incomingTokens).isNotEmpty()
+    }
+
+    private fun extractNumberTokens(value: String): Set<String> {
+        return Regex("\\d+").findAll(value).map { it.value }.toSet()
+    }
+
+    private fun normalizeChapterNameForMatch(value: String): String {
+        val withoutUrlHashSuffix = value
+            .trim()
+            .replace(Regex("_[a-f0-9]{6}$", RegexOption.IGNORE_CASE), "")
+        return withoutUrlHashSuffix.lowercase().replace(Regex("[^a-z0-9]"), "")
     }
 }

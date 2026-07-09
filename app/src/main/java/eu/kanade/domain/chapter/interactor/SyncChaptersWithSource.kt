@@ -32,6 +32,7 @@ import java.lang.Long.min
 import java.time.ZonedDateTime
 import java.util.TreeSet
 import kotlin.math.abs
+import kotlin.math.round
 
 class SyncChaptersWithSource(
     private val downloadManager: DownloadManager,
@@ -607,7 +608,8 @@ class SyncChaptersWithSource(
     private fun chaptersShareExactNumber(first: Chapter, second: Chapter): Boolean {
         val firstNumber = chapterNumberForMatch(first)
         val secondNumber = chapterNumberForMatch(second)
-        return firstNumber != null && secondNumber != null && firstNumber == secondNumber
+        return firstNumber != null && secondNumber != null &&
+            chapterNumbersMatchForDuplicateReconcile(firstNumber, secondNumber)
     }
 
     private fun chapterNumberForMatch(chapter: Chapter): Double? {
@@ -640,18 +642,34 @@ class SyncChaptersWithSource(
 
     private fun hasCompatibleChapterNumber(candidate: Chapter, incoming: Chapter): Boolean {
         if (candidate.isRecognizedNumber && incoming.isRecognizedNumber) {
-            return candidate.chapterNumber == incoming.chapterNumber
+            return chapterNumbersMatchForDuplicateReconcile(candidate.chapterNumber, incoming.chapterNumber)
         }
 
         val candidateParsed = extractPrimaryChapterNumber(candidate.name)
         val incomingParsed = extractPrimaryChapterNumber(incoming.name)
 
         return when {
-            candidate.isRecognizedNumber && incomingParsed != null -> candidate.chapterNumber == incomingParsed
-            incoming.isRecognizedNumber && candidateParsed != null -> incoming.chapterNumber == candidateParsed
-            candidateParsed != null && incomingParsed != null -> candidateParsed == incomingParsed
+            candidate.isRecognizedNumber && incomingParsed != null ->
+                chapterNumbersMatchForDuplicateReconcile(candidate.chapterNumber, incomingParsed)
+            incoming.isRecognizedNumber && candidateParsed != null ->
+                chapterNumbersMatchForDuplicateReconcile(incoming.chapterNumber, candidateParsed)
+            candidateParsed != null && incomingParsed != null ->
+                chapterNumbersMatchForDuplicateReconcile(candidateParsed, incomingParsed)
             else -> false
         }
+    }
+
+    /**
+     * Rounds to 3 decimal places for duplicate-reconcile comparisons only.
+     * Source floats (e.g. MangaDex 5.1f) become imprecise doubles when stored in the DB.
+     */
+    private fun normalizeChapterNumberForDuplicateReconcile(number: Double): Double {
+        return round(number * 1000.0) / 1000.0
+    }
+
+    private fun chapterNumbersMatchForDuplicateReconcile(first: Double, second: Double): Boolean {
+        return normalizeChapterNumberForDuplicateReconcile(first) ==
+            normalizeChapterNumberForDuplicateReconcile(second)
     }
 
     private fun extractPrimaryChapterNumber(value: String): Double? {

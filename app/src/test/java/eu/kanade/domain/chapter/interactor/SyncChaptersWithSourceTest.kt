@@ -860,6 +860,299 @@ class SyncChaptersWithSourceTest {
         coVerify(exactly = 1) { chapterRepository.removeChaptersWithIds(match { 101L in it }) }
     }
 
+    @Test
+    fun `float imprecise decimal chapter numbers should reconcile orphaned duplicate with catalog row`() = runBlocking {
+        val downloadManager = mockk<DownloadManager>()
+        val downloadProvider = mockk<DownloadProvider>()
+        val chapterRepository = mockk<ChapterRepository>()
+        val updateManga = mockk<UpdateManga>()
+        val updateChapter = mockk<UpdateChapter>()
+        val getChaptersByMangaId = mockk<GetChaptersByMangaId>()
+        val getExcludedScanlators = mockk<GetExcludedScanlators>()
+        val libraryPreferences = mockk<LibraryPreferences>()
+        val markDuplicatePreference = mockk<Preference<Set<String>>>()
+
+        val staleOrphan51 = Chapter.create().copy(
+            id = 111,
+            mangaId = 10,
+            read = true,
+            bookmark = true,
+            lastPageRead = 14,
+            dateFetch = 100,
+            chapterNumber = 5.1,
+            name = "Chapter 5.1_ When it Rains (Part 1)_70d265",
+            url = "orphaned://Chapter 5.1_ When it Rains (Part 1)_70d265",
+        )
+        val canonical51 = Chapter.create().copy(
+            id = 112,
+            mangaId = 10,
+            read = false,
+            bookmark = false,
+            lastPageRead = 0,
+            dateFetch = 200,
+            chapterNumber = 5.099999904632568,
+            name = "Ch. 5.1 - When it Rains (Part 1)",
+            url = "/chapter-5-1-md",
+        )
+        val staleOrphan52 = Chapter.create().copy(
+            id = 113,
+            mangaId = 10,
+            read = true,
+            bookmark = false,
+            lastPageRead = 9,
+            dateFetch = 150,
+            chapterNumber = 5.2,
+            name = "Chapter 5.2_ When it rains (Part 2)_02200e",
+            url = "orphaned://Chapter 5.2_ When it rains (Part 2)_02200e",
+        )
+        val canonical52 = Chapter.create().copy(
+            id = 114,
+            mangaId = 10,
+            read = false,
+            bookmark = false,
+            lastPageRead = 0,
+            dateFetch = 250,
+            chapterNumber = 5.199999809265137,
+            name = "Ch. 5.2 - When it rains (Part 2)",
+            url = "/chapter-5-2-md",
+        )
+        val manga = Manga.create().copy(id = 10, source = 1L, ogTitle = "Orcsen Oukokushi", title = "Orcsen Oukokushi")
+        val source51 = SChapter.create().apply {
+            name = "Ch. 5.1 - When it Rains (Part 1)"
+            url = "/chapter-5-1-md"
+            chapter_number = 5.1f
+        }
+        val source52 = SChapter.create().apply {
+            name = "Ch. 5.2 - When it rains (Part 2)"
+            url = "/chapter-5-2-md"
+            chapter_number = 5.2f
+        }
+
+        coEvery { getChaptersByMangaId.await(manga.id) } returns listOf(
+            staleOrphan51,
+            canonical51,
+            staleOrphan52,
+            canonical52,
+        )
+        every {
+            downloadManager.isChapterDownloaded(
+                chapterName = any(),
+                chapterScanlator = any(),
+                chapterUrl = any(),
+                mangaTitle = any(),
+                sourceId = any(),
+            )
+        } returns false
+        coEvery { downloadManager.renameChapter(any(), any(), any(), any()) } returns Unit
+        coEvery { chapterRepository.removeChaptersWithIds(any()) } returns Unit
+        coEvery { chapterRepository.addAll(any()) } answers { firstArg() }
+        coEvery { updateChapter.awaitAll(any()) } returns Unit
+        coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
+        coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
+        every { markDuplicatePreference.get() } returns emptySet()
+
+        val sync = SyncChaptersWithSource(
+            downloadManager = downloadManager,
+            downloadProvider = downloadProvider,
+            chapterRepository = chapterRepository,
+            shouldUpdateDbChapter = ShouldUpdateDbChapter(),
+            updateManga = updateManga,
+            updateChapter = updateChapter,
+            getChaptersByMangaId = getChaptersByMangaId,
+            getExcludedScanlators = getExcludedScanlators,
+            libraryPreferences = libraryPreferences,
+        )
+
+        sync.await(
+            rawSourceChapters = listOf(source51, source52),
+            manga = manga,
+            source = remoteSource(),
+            manualFetch = false,
+        )
+
+        coVerify(exactly = 1) {
+            chapterRepository.removeChaptersWithIds(
+                match { removedIds ->
+                    111L in removedIds && 113L in removedIds && removedIds.size == 2
+                },
+            )
+        }
+        coVerify(exactly = 1) {
+            updateChapter.awaitAll(
+                match { updates ->
+                    updates.any {
+                        it.id == 112L &&
+                            it.read == true &&
+                            it.bookmark == true &&
+                            it.lastPageRead == 14L
+                    } &&
+                        updates.any {
+                            it.id == 114L &&
+                                it.read == true &&
+                                it.bookmark == false &&
+                                it.lastPageRead == 9L
+                        }
+                },
+            )
+        }
+        coVerify(exactly = 2) { downloadManager.renameChapter(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `float imprecise decimal chapters should not cross-reconcile between different subchapter numbers`() = runBlocking {
+        runImpreciseCrossReconcileGuard(
+            staleId = 121L,
+            sourceChapters = listOf(
+                sChapter(name = "Ch. 5", url = "/chapter-5-0", chapterNumber = 5f),
+                sChapter(
+                    name = "Ch. 5.2 - When it rains (Part 2)",
+                    url = "/chapter-5-2-md",
+                    chapterNumber = 5.2f,
+                ),
+            ),
+            dbChapters = listOf(
+                orphanChapter(
+                    id = 121L,
+                    chapterNumber = 5.1,
+                    name = "Chapter 5.1_ When it Rains (Part 1)_70d265",
+                    url = "orphaned://Chapter 5.1_ When it Rains (Part 1)_70d265",
+                ),
+                catalogChapter(
+                    id = 123L,
+                    chapterNumber = 5.0,
+                    name = "Ch. 5",
+                    url = "/chapter-5-0",
+                ),
+                catalogChapter(
+                    id = 124L,
+                    chapterNumber = 5.199999809265137,
+                    name = "Ch. 5.2 - When it rains (Part 2)",
+                    url = "/chapter-5-2-md",
+                ),
+            ),
+        )
+
+        runImpreciseCrossReconcileGuard(
+            staleId = 122L,
+            sourceChapters = listOf(
+                sChapter(
+                    name = "Ch. 5.1 - When it Rains (Part 1)",
+                    url = "/chapter-5-1-md",
+                    chapterNumber = 5.1f,
+                ),
+            ),
+            dbChapters = listOf(
+                orphanChapter(
+                    id = 122L,
+                    chapterNumber = 5.2,
+                    name = "Chapter 5.2_ When it rains (Part 2)_02200e",
+                    url = "orphaned://Chapter 5.2_ When it rains (Part 2)_02200e",
+                ),
+                catalogChapter(
+                    id = 125L,
+                    chapterNumber = 5.099999904632568,
+                    name = "Ch. 5.1 - When it Rains (Part 1)",
+                    url = "/chapter-5-1-md",
+                ),
+            ),
+        )
+    }
+
+    private suspend fun runImpreciseCrossReconcileGuard(
+        staleId: Long,
+        sourceChapters: List<SChapter>,
+        dbChapters: List<Chapter>,
+    ) {
+        val downloadManager = mockk<DownloadManager>()
+        val downloadProvider = mockk<DownloadProvider>()
+        val chapterRepository = mockk<ChapterRepository>()
+        val updateManga = mockk<UpdateManga>()
+        val updateChapter = mockk<UpdateChapter>()
+        val getChaptersByMangaId = mockk<GetChaptersByMangaId>()
+        val getExcludedScanlators = mockk<GetExcludedScanlators>()
+        val libraryPreferences = mockk<LibraryPreferences>()
+        val markDuplicatePreference = mockk<Preference<Set<String>>>()
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+
+        coEvery { getChaptersByMangaId.await(manga.id) } returns dbChapters
+        every { downloadManager.isChapterDownloaded(any(), any(), any(), any(), any()) } returns false
+        coEvery { chapterRepository.removeChaptersWithIds(any()) } returns Unit
+        coEvery { chapterRepository.addAll(any()) } answers { firstArg() }
+        coEvery { updateChapter.awaitAll(any()) } returns Unit
+        coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
+        coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
+        every { markDuplicatePreference.get() } returns emptySet()
+
+        val sync = SyncChaptersWithSource(
+            downloadManager = downloadManager,
+            downloadProvider = downloadProvider,
+            chapterRepository = chapterRepository,
+            shouldUpdateDbChapter = ShouldUpdateDbChapter(),
+            updateManga = updateManga,
+            updateChapter = updateChapter,
+            getChaptersByMangaId = getChaptersByMangaId,
+            getExcludedScanlators = getExcludedScanlators,
+            libraryPreferences = libraryPreferences,
+        )
+
+        sync.await(
+            rawSourceChapters = sourceChapters,
+            manga = manga,
+            source = localSource(),
+            manualFetch = false,
+        )
+
+        coVerify(exactly = 0) {
+            chapterRepository.removeChaptersWithIds(match { staleId in it })
+        }
+    }
+
+    private fun orphanChapter(
+        id: Long,
+        chapterNumber: Double,
+        name: String,
+        url: String,
+    ): Chapter {
+        return Chapter.create().copy(
+            id = id,
+            mangaId = 10,
+            chapterNumber = chapterNumber,
+            name = name,
+            url = url,
+        )
+    }
+
+    private fun catalogChapter(
+        id: Long,
+        chapterNumber: Double,
+        name: String,
+        url: String,
+    ): Chapter {
+        return Chapter.create().copy(
+            id = id,
+            mangaId = 10,
+            chapterNumber = chapterNumber,
+            name = name,
+            url = url,
+        )
+    }
+
+    private fun sChapter(
+        name: String,
+        url: String,
+        chapterNumber: Float,
+    ): SChapter {
+        return SChapter.create().apply {
+            this.name = name
+            this.url = url
+            this.chapter_number = chapterNumber
+        }
+    }
+
     private fun chapter(
         id: Long,
         read: Boolean,
@@ -881,6 +1174,23 @@ class SyncChaptersWithSourceTest {
         return object : Source {
             override val id: Long = 0L
             override val name: String = "Local"
+            override suspend fun getMangaDetails(manga: SManga): SManga = manga
+            override suspend fun getChapterList(manga: SManga): List<SChapter> = emptyList()
+            override suspend fun getPageList(chapter: SChapter): List<Page> = emptyList()
+            override suspend fun getRelatedMangaList(
+                manga: SManga,
+                exceptionHandler: (Throwable) -> Unit,
+                pushResults: suspend (relatedManga: Pair<String, List<SManga>>, completed: Boolean) -> Unit,
+            ) {
+                assertTrue(true)
+            }
+        }
+    }
+
+    private fun remoteSource(): Source {
+        return object : Source {
+            override val id: Long = 1L
+            override val name: String = "Remote"
             override suspend fun getMangaDetails(manga: SManga): SManga = manga
             override suspend fun getChapterList(manga: SManga): List<SChapter> = emptyList()
             override suspend fun getPageList(chapter: SChapter): List<Page> = emptyList()

@@ -267,6 +267,9 @@ class SyncChaptersWithSource(
 
                 if (existingMatches.size == 1) {
                     val canonical = existingMatches.first()
+                    if (!source.isLocal()) {
+                        downloadManager.renameChapter(source, manga, removedChapter, canonical)
+                    }
                     val currentUpdate = duplicateCanonicalChapterUpdates[canonical.id]
                     val baseRead = currentUpdate?.read ?: canonical.read
                     val baseBookmark = currentUpdate?.bookmark ?: canonical.bookmark
@@ -281,6 +284,9 @@ class SyncChaptersWithSource(
                     )
                 } else {
                     val (idx, canonical) = newMatches.entries.first()
+                    if (!source.isLocal()) {
+                        downloadManager.renameChapter(source, manga, removedChapter, canonical)
+                    }
                     val merged = canonical.copy(
                         read = canonical.read || removedChapter.read,
                         bookmark = canonical.bookmark || removedChapter.bookmark,

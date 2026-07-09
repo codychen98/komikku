@@ -490,12 +490,6 @@ class SyncChaptersWithSource(
 
         if (existingNormalized == incomingNormalized) return true
 
-        val existingDigits = Regex("\\d+").findAll(existing).map { it.value }.toSet()
-        val incomingDigits = Regex("\\d+").findAll(incoming).map { it.value }.toSet()
-        if (existingDigits.isNotEmpty() && incomingDigits.isNotEmpty() && existingDigits.intersect(incomingDigits).isNotEmpty()) {
-            return true
-        }
-
         val lengthDelta = abs(existingNormalized.length - incomingNormalized.length)
         return lengthDelta <= 8 &&
             (existingNormalized.contains(incomingNormalized) || incomingNormalized.contains(existingNormalized))
@@ -506,16 +500,23 @@ class SyncChaptersWithSource(
             return candidate.chapterNumber == incoming.chapterNumber
         }
 
-        // Fallback for sources/folder names that break number recognition but still include chapter digits.
-        val candidateTokens = extractNumberTokens(candidate.name)
-        val incomingTokens = extractNumberTokens(incoming.name)
-        return candidateTokens.isNotEmpty() &&
-            incomingTokens.isNotEmpty() &&
-            candidateTokens.intersect(incomingTokens).isNotEmpty()
+        val candidateParsed = extractPrimaryChapterNumber(candidate.name)
+        val incomingParsed = extractPrimaryChapterNumber(incoming.name)
+
+        return when {
+            candidate.isRecognizedNumber && incomingParsed != null -> candidate.chapterNumber == incomingParsed
+            incoming.isRecognizedNumber && candidateParsed != null -> incoming.chapterNumber == candidateParsed
+            candidateParsed != null && incomingParsed != null -> candidateParsed == incomingParsed
+            else -> false
+        }
     }
 
-    private fun extractNumberTokens(value: String): Set<String> {
-        return Regex("\\d+").findAll(value).map { it.value }.toSet()
+    private fun extractPrimaryChapterNumber(value: String): Double? {
+        val sanitized = value
+            .trim()
+            .replace(Regex("_[a-f0-9]{6}$", RegexOption.IGNORE_CASE), "")
+        val match = Regex("(\\d+(?:\\.\\d+)?)").find(sanitized) ?: return null
+        return match.groupValues.getOrNull(1)?.toDoubleOrNull()
     }
 
     private fun normalizeChapterNameForMatch(value: String): String {

@@ -111,11 +111,17 @@ class SyncChaptersWithSource(
 
             if (dbChapter == null) {
                 // Reconcile against a previously retained chapter before inserting a new row.
-                val reconciledMatch = removedByUrlChapters.find { candidate ->
+                val reconciliationCandidates = dbChapters.filter { candidate ->
                     candidate.id !in reconciledDbChapterIdsToRemove &&
-                        isReconciliationCandidateMatch(candidate, chapter, manga)
+                        candidate.url != chapter.url
+                }
+                val reconciledMatch = reconciliationCandidates.find { candidate ->
+                    isReconciliationCandidateMatch(candidate, chapter, manga)
                 }
                 if (reconciledMatch != null) {
+                    if (!source.isLocal()) {
+                        downloadManager.renameChapter(source, manga, reconciledMatch, chapter)
+                    }
                     chapter = chapter.copy(
                         read = reconciledMatch.read,
                         bookmark = reconciledMatch.bookmark,

@@ -24,6 +24,9 @@ enum class DebugToggles(val default: Boolean) {
 
     // KMK -->
     HIDE_COVER_IMAGE_ONLY_SHOW_COLOR(false),
+
+    // Log chapter duplicate reconciliation decisions during source sync (logcat tag: ChapterDuplicateReconcile)
+    ENABLE_CHAPTER_DUPLICATE_RECONCILE_LOGGING(false),
     // KMK <--
     ;
 

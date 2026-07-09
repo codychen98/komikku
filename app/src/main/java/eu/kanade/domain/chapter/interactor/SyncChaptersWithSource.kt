@@ -11,6 +11,8 @@ import eu.kanade.tachiyomi.data.download.Downloader
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.online.HttpSource
+import com.elvishew.xlog.XLog
+import exh.debug.DebugToggles
 import exh.source.isEhBasedManga
 import tachiyomi.data.chapter.ChapterSanitizer
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -76,6 +78,16 @@ class SyncChaptersWithSource(
 
         val dbChapters = getChaptersByMangaId.await(manga.id)
 
+        duplicateReconcileLog(manga) {
+            "sync_start mangaId=${manga.id} title=\"${manga.title}\" " +
+                "sourceChapters=${sourceChapters.size} dbChapters=${dbChapters.size} manualFetch=$manualFetch"
+        }
+        if (duplicateReconcileLoggingEnabled()) {
+            dbChapters.forEach { chapter ->
+                duplicateReconcileLog(manga) { "db_chapter ${chapter.duplicateReconcileLabel()}" }
+            }
+        }
+
         val newChapters = mutableListOf<Chapter>()
         val updatedChapters = mutableListOf<Chapter>()
         val reconciledDbChapterIdsToRemove = mutableSetOf<Long>()
@@ -120,7 +132,25 @@ class SyncChaptersWithSource(
                 val reconciledMatch = reconciliationCandidates.find { candidate ->
                     isReconciliationCandidateMatch(candidate, chapter, manga)
                 }
+                if (reconciledMatch == null && duplicateReconcileLoggingEnabled()) {
+                    val nearMatches = reconciliationCandidates.filter { candidate ->
+                        hasCompatibleChapterNumber(candidate, chapter)
+                    }
+                    if (nearMatches.isNotEmpty()) {
+                        duplicateReconcileLog(manga) {
+                            "insert_reconcile_miss incoming=${chapter.duplicateReconcileLabel()} " +
+                                nearMatches.joinToString(prefix = "candidates=[", postfix = "]") { candidate ->
+                                    "${candidate.duplicateReconcileLabel()} " +
+                                        "reason=${explainReconciliationCandidateMismatch(candidate, chapter, manga)}"
+                                }
+                        }
+                    }
+                }
                 if (reconciledMatch != null) {
+                    duplicateReconcileLog(manga) {
+                        "insert_reconcile_hit stale=${reconciledMatch.duplicateReconcileLabel()} " +
+                            "incoming=${chapter.duplicateReconcileLabel()}"
+                    }
                     if (!source.isLocal()) {
                         downloadManager.renameChapter(source, manga, reconciledMatch, chapter)
                     }
@@ -185,13 +215,17 @@ class SyncChaptersWithSource(
         )
 
         // Return if there's nothing to add, delete, or update to avoid unnecessary db transactions.
-        if (
-            newChapters.isEmpty() &&
+        val isNoOpSync = newChapters.isEmpty() &&
             removedChapters.isEmpty() &&
             updatedChapters.isEmpty() &&
             staleDownloadedDuplicateChapterIdsToRemove.isEmpty() &&
             duplicateCanonicalChapterUpdates.isEmpty()
-        ) {
+        duplicateReconcileLog(manga) {
+            "sync_pre_commit noOp=$isNoOpSync new=${newChapters.size} removed=${removedChapters.size} " +
+                "updated=${updatedChapters.size} staleToRemove=${staleDownloadedDuplicateChapterIdsToRemove.size} " +
+                "canonicalUpdates=${duplicateCanonicalChapterUpdates.size}"
+        }
+        if (isNoOpSync) {
             if (manualFetch || manga.fetchInterval == 0 || manga.nextUpdate < fetchWindow.first) {
                 updateManga.awaitUpdateFetchInterval(
                     manga,
@@ -274,6 +308,9 @@ class SyncChaptersWithSource(
                         sourceId = manga.source,
                     )
                 ) {
+                    duplicateReconcileLog(manga) {
+                        "removed_merge_skip not_downloaded stale=${removedChapter.duplicateReconcileLabel()}"
+                    }
                     return@forEach
                 }
 
@@ -284,7 +321,20 @@ class SyncChaptersWithSource(
                     isCanonicalDuplicateMatch(stale = removedChapter, canonical = canonical)
                 }
                 val totalMatches = existingMatches.size + newMatches.size
-                if (totalMatches != 1) return@forEach
+                if (totalMatches != 1) {
+                    duplicateReconcileLog(manga) {
+                        "removed_merge_ambiguous stale=${removedChapter.duplicateReconcileLabel()} " +
+                            "totalMatches=$totalMatches existing=${existingMatches.size} new=${newMatches.size} " +
+                            explainRemovedMergeCandidates(removedChapter, canonicalExistingById.values, canonicalNewByIndex.values)
+                    }
+                    return@forEach
+                }
+
+                duplicateReconcileLog(manga) {
+                    val canonical = existingMatches.firstOrNull() ?: newMatches.values.first()
+                    "removed_merge_hit stale=${removedChapter.duplicateReconcileLabel()} " +
+                        "canonical=${canonical.duplicateReconcileLabel()}"
+                }
 
                 if (existingMatches.size == 1) {
                     val canonical = existingMatches.first()
@@ -369,6 +419,9 @@ class SyncChaptersWithSource(
         }
 
         if (staleDownloadedDuplicateChapterIdsToRemove.isNotEmpty()) {
+            duplicateReconcileLog(manga) {
+                "sync_remove_stale_ids ids=${staleDownloadedDuplicateChapterIdsToRemove.sorted()}"
+            }
             chapterRepository.removeChaptersWithIds(staleDownloadedDuplicateChapterIdsToRemove.toList())
         }
 
@@ -464,6 +517,10 @@ class SyncChaptersWithSource(
                             -1.0,
                         )
                         if (chapterNumber >= 0 && chapterNumber in knownChapterNumbers) {
+                            duplicateReconcileLog(manga) {
+                                "folder_scan_skip_known_number folder=\"$fileName\" chapterNumber=$chapterNumber " +
+                                    "knownNumbers=${knownChapterNumbers.sorted()}"
+                            }
                             return@mapNotNull null
                         }
 
@@ -477,7 +534,15 @@ class SyncChaptersWithSource(
                             isCanonicalDuplicateMatch(stale = folderChapter, canonical = catalog)
                         }
                         if (hasCatalogMatch) {
+                            duplicateReconcileLog(manga) {
+                                "folder_scan_skip_catalog_match folder=\"$fileName\" " +
+                                    "chapterNumber=$chapterNumber"
+                            }
                             return@mapNotNull null
+                        }
+
+                        duplicateReconcileLog(manga) {
+                            "folder_scan_add_orphan folder=\"$fileName\" chapterNumber=$chapterNumber"
                         }
 
                         Chapter.create().copy(
@@ -641,8 +706,20 @@ class SyncChaptersWithSource(
             )
             val isOrphaned = stale.url.startsWith("orphaned://", ignoreCase = true)
             val isHashSuffixed = isHashSuffixedChapterName(stale.name)
-            if (!isDownloaded && !isOrphaned) return@forEach
-            if (!isOrphaned && !isHashSuffixed) return@forEach
+            if (!isDownloaded && !isOrphaned) {
+                duplicateReconcileLog(manga) {
+                    "stable_reconcile_skip not_downloaded_or_orphan stale=${stale.duplicateReconcileLabel()} " +
+                        "isDownloaded=$isDownloaded isOrphaned=$isOrphaned isHashSuffixed=$isHashSuffixed"
+                }
+                return@forEach
+            }
+            if (!isOrphaned && !isHashSuffixed) {
+                duplicateReconcileLog(manga) {
+                    "stable_reconcile_skip not_stale_indicator stale=${stale.duplicateReconcileLabel()} " +
+                        "isDownloaded=$isDownloaded isOrphaned=$isOrphaned isHashSuffixed=$isHashSuffixed"
+                }
+                return@forEach
+            }
 
             val matches = dbChapters.filter { canonical ->
                 canonical.id != stale.id &&
@@ -651,9 +728,21 @@ class SyncChaptersWithSource(
                     canonical.url in sourceUrls &&
                     isCanonicalDuplicateMatch(stale = stale, canonical = canonical)
             }
-            if (matches.size != 1) return@forEach
+            if (matches.size != 1) {
+                duplicateReconcileLog(manga) {
+                    "stable_reconcile_ambiguous stale=${stale.duplicateReconcileLabel()} " +
+                        "matchCount=${matches.size} isDownloaded=$isDownloaded isOrphaned=$isOrphaned " +
+                        "isHashSuffixed=$isHashSuffixed " +
+                        explainStableReconcileCandidates(stale, dbChapters, sourceUrls, staleIdsToRemove)
+                }
+                return@forEach
+            }
 
             val canonical = matches.first()
+            duplicateReconcileLog(manga) {
+                "stable_reconcile_hit stale=${stale.duplicateReconcileLabel()} " +
+                    "canonical=${canonical.duplicateReconcileLabel()}"
+            }
             if (!source.isLocal()) {
                 downloadManager.renameChapter(source, manga, stale, canonical)
             }
@@ -671,5 +760,115 @@ class SyncChaptersWithSource(
             )
             staleIdsToRemove.add(stale.id)
         }
+    }
+
+    private fun duplicateReconcileLoggingEnabled(): Boolean {
+        return DebugToggles.ENABLE_CHAPTER_DUPLICATE_RECONCILE_LOGGING.enabled
+    }
+
+    private fun duplicateReconcileLog(manga: Manga, message: () -> String) {
+        if (!duplicateReconcileLoggingEnabled()) return
+        // WARN so lines are written even when Advanced log level is Minimal (file threshold is WARN).
+        XLog.tag(CHAPTER_DUPLICATE_RECONCILE_TAG).w("mangaId=${manga.id} ${message()}")
+    }
+
+    private fun Chapter.duplicateReconcileLabel(): String {
+        val matchNumber = chapterNumberForMatch(this)
+        return "id=$id num=$chapterNumber matchNum=$matchNumber " +
+            "name=\"$name\" url=$url scanlator=${scanlator ?: "null"}"
+    }
+
+    private fun explainReconciliationCandidateMismatch(
+        candidate: Chapter,
+        incoming: Chapter,
+        manga: Manga,
+    ): String {
+        val reasons = mutableListOf<String>()
+        if (!hasCompatibleChapterNumber(candidate, incoming)) {
+            reasons += "chapter_number(candidate=${chapterNumberForMatch(candidate)} " +
+                "incoming=${chapterNumberForMatch(incoming)})"
+        }
+        val isOrphanedCandidate = candidate.url.startsWith("orphaned://")
+        val isDownloadedRetainedCandidate = downloadManager.isChapterDownloaded(
+            chapterName = candidate.name,
+            chapterScanlator = candidate.scanlator,
+            chapterUrl = candidate.url,
+            mangaTitle = manga.ogTitle,
+            sourceId = manga.source,
+        )
+        if (!isOrphanedCandidate && !isDownloadedRetainedCandidate) {
+            reasons += "not_orphan_or_downloaded"
+        }
+        if (!hasCompatibleScanlator(candidate.scanlator, incoming.scanlator)) {
+            reasons += "scanlator"
+        }
+        if (!hasCompatibleChapterIdentity(candidate, incoming)) {
+            reasons += "chapter_identity"
+        }
+        return reasons.joinToString()
+    }
+
+    private fun explainCanonicalDuplicateMismatch(stale: Chapter, canonical: Chapter): String {
+        val reasons = mutableListOf<String>()
+        if (stale.url == canonical.url) reasons += "same_url"
+        if (!hasCompatibleScanlator(stale.scanlator, canonical.scanlator)) reasons += "scanlator"
+        if (!chaptersShareExactNumber(stale, canonical)) {
+            reasons += "chapter_number(stale=${chapterNumberForMatch(stale)} " +
+                "canonical=${chapterNumberForMatch(canonical)})"
+        } else if (!isStaleDuplicateIndicator(stale) && !hasCompatibleChapterName(stale.name, canonical.name)) {
+            reasons += "chapter_name"
+        }
+        return reasons.joinToString()
+    }
+
+    private fun explainStableReconcileCandidates(
+        stale: Chapter,
+        dbChapters: List<Chapter>,
+        sourceUrls: Set<String>,
+        staleIdsToRemove: Set<Long>,
+    ): String {
+        return dbChapters.joinToString(prefix = "candidates=[", postfix = "]") { canonical ->
+            val excludedReasons = mutableListOf<String>()
+            if (canonical.id == stale.id) excludedReasons += "self"
+            if (canonical.id in staleIdsToRemove) excludedReasons += "already_marked_stale"
+            if (isStaleDuplicateIndicator(canonical)) excludedReasons += "stale_indicator"
+            if (canonical.url !in sourceUrls) excludedReasons += "url_not_in_source"
+            val mismatch = explainCanonicalDuplicateMismatch(stale, canonical)
+            if (excludedReasons.isEmpty() && mismatch.isEmpty()) {
+                "${canonical.duplicateReconcileLabel()} status=match"
+            } else if (excludedReasons.isNotEmpty()) {
+                "${canonical.duplicateReconcileLabel()} excluded=${excludedReasons.joinToString()}"
+            } else {
+                "${canonical.duplicateReconcileLabel()} mismatch=$mismatch"
+            }
+        }
+    }
+
+    private fun explainRemovedMergeCandidates(
+        stale: Chapter,
+        existingCanonicals: Collection<Chapter>,
+        newCanonicals: Collection<Chapter>,
+    ): String {
+        val existingDetails = existingCanonicals.joinToString(prefix = "existing=[", postfix = "]") { canonical ->
+            val mismatch = explainCanonicalDuplicateMismatch(stale, canonical)
+            if (mismatch.isEmpty()) {
+                "${canonical.duplicateReconcileLabel()} status=match"
+            } else {
+                "${canonical.duplicateReconcileLabel()} mismatch=$mismatch"
+            }
+        }
+        val newDetails = newCanonicals.joinToString(prefix = "new=[", postfix = "]") { canonical ->
+            val mismatch = explainCanonicalDuplicateMismatch(stale, canonical)
+            if (mismatch.isEmpty()) {
+                "${canonical.duplicateReconcileLabel()} status=match"
+            } else {
+                "${canonical.duplicateReconcileLabel()} mismatch=$mismatch"
+            }
+        }
+        return "$existingDetails $newDetails"
+    }
+
+    private companion object {
+        private const val CHAPTER_DUPLICATE_RECONCILE_TAG = "ChapterDuplicateReconcile"
     }
 }

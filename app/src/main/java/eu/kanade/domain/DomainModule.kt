@@ -3,6 +3,7 @@ package eu.kanade.domain
 import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
 import eu.kanade.domain.chapter.interactor.ChapterDownloadComicInfoReader
 import eu.kanade.domain.chapter.interactor.CleanupOrphanedDuplicateChapters
+import eu.kanade.domain.chapter.interactor.ReconcileChapterDownloads
 import eu.kanade.domain.chapter.interactor.RestoreOrphanedChapters
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource

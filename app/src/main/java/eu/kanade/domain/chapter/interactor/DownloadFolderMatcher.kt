@@ -99,7 +99,7 @@ object DownloadFolderMatcher {
         val byNumber = catalog.filter { it.isRecognizedNumber && it.chapterNumber == parsedNumber }
         if (byNumber.isEmpty()) return null
 
-        val translator = comicInfo.translator?.value?.trim()?.takeIf { it.isNotEmpty() }
+        val translator = comicInfo?.translator?.value?.trim()?.takeIf { it.isNotEmpty() }
         val matched = if (translator != null) {
             byNumber.filter { chapter ->
                 chapter.scanlator?.equals(translator, ignoreCase = true) == true

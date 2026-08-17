@@ -96,11 +96,10 @@ class ChapterLoader(
             chapterName = dbChapter.name,
             chapterScanlator = dbChapter.scanlator,
             chapterUrl = dbChapter.url,
-            // SY -->
             mangaTitle = manga.ogTitle,
-            // SY <--
             sourceId = manga.source,
             skipCache = true,
+            chapterId = dbChapter.id,
         )
         return when {
             // SY -->
@@ -118,6 +117,7 @@ class ChapterLoader(
                     mangaTitle = manga.ogTitle,
                     sourceId = manga.source,
                     skipCache = true,
+                    chapterId = chapter.chapter.id,
                 )
                 when {
                     isMergedMangaDownloaded -> DownloadPageLoader(

@@ -1,0 +1,50 @@
+CREATE TABLE chapter_downloads(
+    chapter_id INTEGER NOT NULL PRIMARY KEY,
+    relative_path TEXT NOT NULL,
+    linked_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+    FOREIGN KEY(chapter_id) REFERENCES chapters(_id) ON DELETE CASCADE
+);
+
+CREATE INDEX chapter_downloads_chapter_id_index ON chapter_downloads(chapter_id);
+
+insert:
+INSERT INTO chapter_downloads(chapter_id, relative_path, linked_at)
+VALUES (:chapterId, :relativePath, :linkedAt);
+
+upsert:
+INSERT INTO chapter_downloads(chapter_id, relative_path, linked_at)
+VALUES (:chapterId, :relativePath, :linkedAt)
+ON CONFLICT(chapter_id)
+DO UPDATE SET
+    relative_path = :relativePath,
+    linked_at = :linkedAt
+WHERE chapter_id = :chapterId;
+
+deleteByChapterId:
+DELETE FROM chapter_downloads
+WHERE chapter_id = :chapterId;
+
+getByChapterId:
+SELECT
+    chapter_id,
+    relative_path,
+    linked_at
+FROM chapter_downloads
+WHERE chapter_id = :chapterId
+LIMIT 1;
+
+getByMangaId:
+SELECT
+    CD.chapter_id,
+    CD.relative_path,
+    CD.linked_at
+FROM chapter_downloads CD
+JOIN chapters C ON CD.chapter_id = C._id
+WHERE C.manga_id = :mangaId;
+
+getAll:
+SELECT
+    chapter_id,
+    relative_path,
+    linked_at
+FROM chapter_downloads;

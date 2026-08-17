@@ -1137,12 +1137,8 @@ class MangaScreenModel(
                 true
             } else {
                 downloadManager.isChapterDownloaded(
-                    chapter.name,
-                    chapter.scanlator,
-                    chapter.url,
-                    // SY -->
+                    chapter,
                     manga.ogTitle,
-                    // SY <--
                     manga.source,
                 )
             }

@@ -254,6 +254,33 @@ class DownloadProvider(
     }
 
     /**
+     * Returns the path to a chapter download relative to the downloads root, e.g.
+     * `"MangaFire (US)/Title/Chapter 58_82c355"` or `"Source/Title/chapter.cbz"`.
+     */
+    fun getRelativeChapterPath(source: Source, mangaTitle: String, entryName: String): String {
+        return "${getSourceDirName(source)}/${getMangaDirName(mangaTitle)}/$entryName"
+    }
+
+    /**
+     * Resolves a registry [relativePath] (under the downloads root) to the on-disk chapter file or folder.
+     */
+    fun findChapterDirByRelativePath(relativePath: String): UniFile? {
+        val root = downloadsDir ?: return null
+        val segments = relativePath.split('/', limit = 3)
+        if (segments.size < 3) return null
+        return root.findFile(segments[0])
+            ?.findFile(segments[1])
+            ?.findFile(segments[2])
+    }
+
+    /** Returns true when [entry] is a valid downloaded chapter (image folder or `.cbz` file). */
+    fun isValidDownloadEntry(entry: UniFile): Boolean {
+        val fileName = entry.name.orEmpty()
+        if (fileName.endsWith(".cbz")) return entry.isFile
+        return resolveChapterImageDir(entry).isValid
+    }
+
+    /**
      * Returns the chapter directory name for a chapter.
      *
      * @param chapterName the name of the chapter to query.

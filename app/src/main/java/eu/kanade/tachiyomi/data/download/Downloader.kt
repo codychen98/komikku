@@ -59,6 +59,8 @@ import tachiyomi.core.metadata.comicinfo.COMIC_INFO_FILE
 import tachiyomi.core.metadata.comicinfo.ComicInfo
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.download.model.ChapterDownload
+import tachiyomi.domain.download.repository.ChapterDownloadRepository
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -85,6 +87,7 @@ class Downloader(
     private val xml: XML = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     private val getTracks: GetTracks = Injekt.get(),
+    private val chapterDownloadRepository: ChapterDownloadRepository = Injekt.get(),
     // SY -->
     private val sourcePreferences: SourcePreferences = Injekt.get(),
     // SY <--
@@ -438,12 +441,28 @@ class Downloader(
             )
 
             // Only rename the directory if it's downloaded
-            if (downloadPreferences.saveChaptersAsCBZ().get()) {
+            val saveAsCbz = downloadPreferences.saveChaptersAsCBZ().get()
+            if (saveAsCbz) {
                 archiveChapter(mangaDir, chapterDirname, tmpDir)
             } else {
                 tmpDir.renameTo(chapterDirname)
             }
             cache.addChapter(chapterDirname, mangaDir, download.manga)
+
+            val entryName = if (saveAsCbz) "$chapterDirname.cbz" else chapterDirname
+            val relativePath = provider.getRelativeChapterPath(
+                download.source,
+                download.manga.ogTitle,
+                entryName,
+            )
+            chapterDownloadRepository.upsert(
+                ChapterDownload(
+                    chapterId = download.chapter.id,
+                    relativePath = relativePath,
+                    linkedAt = System.currentTimeMillis(),
+                ),
+            )
+            cache.setRegistryEntry(download.chapter.id, relativePath)
 
             DiskUtil.createNoMediaFile(tmpDir, context)
 

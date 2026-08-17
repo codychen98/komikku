@@ -37,12 +37,8 @@ fun List<Chapter>.applyFilters(
             // SY <--
             applyFilter(downloadedFilter) {
                 val downloaded = downloadManager.isChapterDownloaded(
-                    chapter.name,
-                    chapter.scanlator,
-                    chapter.url,
-                    // SY -->
+                    chapter,
                     manga.ogTitle,
-                    // SY <--
                     manga.source,
                 )
                 downloaded || isLocalManga

@@ -1,0 +1,8 @@
+CREATE TABLE chapter_downloads(
+    chapter_id INTEGER NOT NULL PRIMARY KEY,
+    relative_path TEXT NOT NULL,
+    linked_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+    FOREIGN KEY(chapter_id) REFERENCES chapters(_id) ON DELETE CASCADE
+);
+
+CREATE INDEX chapter_downloads_chapter_id_index ON chapter_downloads(chapter_id);

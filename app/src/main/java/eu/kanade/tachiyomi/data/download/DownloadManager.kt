@@ -23,6 +23,8 @@ import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.download.model.ChapterDownload
+import tachiyomi.domain.download.repository.ChapterDownloadRepository
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -43,6 +45,7 @@ class DownloadManager(
     private val getCategories: GetCategories = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
     private val downloadPreferences: DownloadPreferences = Injekt.get(),
+    private val chapterDownloadRepository: ChapterDownloadRepository = Injekt.get(),
 ) {
 
     /**
@@ -162,15 +165,7 @@ class DownloadManager(
      * @return the list of pages from the chapter.
      */
     fun buildPageList(source: Source, manga: Manga, chapter: Chapter): List<Page> {
-        val chapterDir = provider.findChapterDir(
-            chapter.name,
-            chapter.scanlator,
-            chapter.url,
-            // SY -->
-            manga.ogTitle,
-            // SY <--
-            source,
-        )
+        val chapterDir = resolveChapterDir(source, manga, chapter)
         val imageDir = if (chapterDir?.isDirectory == true) {
             provider.resolveChapterImageDir(chapterDir).imageDir ?: chapterDir
         } else {
@@ -206,8 +201,49 @@ class DownloadManager(
         mangaTitle: String,
         sourceId: Long,
         skipCache: Boolean = false,
+        chapterId: Long? = null,
     ): Boolean {
-        return cache.isChapterDownloaded(chapterName, chapterScanlator, chapterUrl, mangaTitle, sourceId, skipCache)
+        return cache.isChapterDownloaded(
+            chapterName,
+            chapterScanlator,
+            chapterUrl,
+            mangaTitle,
+            sourceId,
+            skipCache,
+            chapterId,
+        )
+    }
+
+    fun isChapterDownloaded(
+        chapter: Chapter,
+        mangaTitle: String,
+        sourceId: Long,
+        skipCache: Boolean = false,
+    ): Boolean {
+        return isChapterDownloaded(
+            chapter.name,
+            chapter.scanlator,
+            chapter.url,
+            mangaTitle,
+            sourceId,
+            skipCache,
+            chapter.id,
+        )
+    }
+
+    private fun resolveChapterDir(source: Source, manga: Manga, chapter: Chapter): UniFile? {
+        cache.getRegistryPath(chapter.id)?.let { relativePath ->
+            provider.findChapterDirByRelativePath(relativePath)
+                ?.takeIf { provider.isValidDownloadEntry(it) }
+        }?.let { return it }
+
+        return provider.findChapterDir(
+            chapter.name,
+            chapter.scanlator,
+            chapter.url,
+            manga.ogTitle,
+            source,
+        )
     }
 
     /**
@@ -263,6 +299,10 @@ class DownloadManager(
             val (mangaDir, chapterDirs) = provider.findChapterDirs(filteredChapters, manga, source)
             chapterDirs.forEach { it.delete() }
             cache.removeChapters(filteredChapters, manga)
+            for (chapter in filteredChapters) {
+                chapterDownloadRepository.deleteByChapterId(chapter.id)
+                cache.removeRegistryEntry(chapter.id)
+            }
 
             // Delete manga directory if empty
             if (mangaDir?.listFiles()?.isEmpty() == true) {
@@ -436,6 +476,7 @@ class DownloadManager(
     suspend fun renameManga(manga: Manga, newTitle: String) {
         val source = sourceManager.getOrStub(manga.source)
         val oldFolder = provider.findMangaDir(/* KMK --> */ manga.ogTitle /* KMK --> */, source) ?: return
+        val oldMangaDirName = oldFolder.name ?: provider.getMangaDirName(manga.ogTitle)
         val newName = provider.getMangaDirName(newTitle)
 
         if (oldFolder.name == newName) return
@@ -454,6 +495,11 @@ class DownloadManager(
 
         if (oldFolder.renameTo(newName)) {
             cache.renameManga(manga, oldFolder, newTitle)
+            updateMangaDownloadPaths(
+                mangaId = manga.id,
+                oldMangaDirName = oldMangaDirName,
+                newMangaDirName = newName,
+            )
         } else {
             logcat(LogPriority.ERROR) { "Failed to rename manga download folder: ${oldFolder.name}" }
         }
@@ -493,8 +539,43 @@ class DownloadManager(
         if (oldDownload.renameTo(newName)) {
             cache.removeChapter(oldChapter, manga)
             cache.addChapter(newName, mangaDir, manga)
+            if (oldChapter.id != newChapter.id) {
+                chapterDownloadRepository.deleteByChapterId(oldChapter.id)
+                cache.removeRegistryEntry(oldChapter.id)
+            }
+            val relativePath = provider.getRelativeChapterPath(source, manga.ogTitle, newName)
+            chapterDownloadRepository.upsert(
+                ChapterDownload(
+                    chapterId = newChapter.id,
+                    relativePath = relativePath,
+                    linkedAt = System.currentTimeMillis(),
+                ),
+            )
+            cache.setRegistryEntry(newChapter.id, relativePath)
         } else {
             logcat(LogPriority.ERROR) { "Could not rename downloaded chapter: ${oldChapter.name}" }
+        }
+    }
+
+    private suspend fun updateMangaDownloadPaths(
+        mangaId: Long,
+        oldMangaDirName: String,
+        newMangaDirName: String,
+    ) {
+        if (oldMangaDirName == newMangaDirName) return
+
+        for (download in chapterDownloadRepository.getByMangaId(mangaId)) {
+            val segments = download.relativePath.split('/', limit = 3)
+            if (segments.size < 3 || segments[1] != oldMangaDirName) continue
+
+            val updatedPath = "${segments[0]}/$newMangaDirName/${segments[2]}"
+            chapterDownloadRepository.upsert(
+                download.copy(
+                    relativePath = updatedPath,
+                    linkedAt = System.currentTimeMillis(),
+                ),
+            )
+            cache.setRegistryEntry(download.chapterId, updatedPath)
         }
     }
 

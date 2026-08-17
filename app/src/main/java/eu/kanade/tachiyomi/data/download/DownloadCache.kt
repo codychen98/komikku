@@ -46,6 +46,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.download.repository.ChapterDownloadRepository
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -68,6 +69,7 @@ class DownloadCache(
     private val sourceManager: SourceManager = Injekt.get(),
     private val extensionManager: ExtensionManager = Injekt.get(),
     private val storageManager: StorageManager = Injekt.get(),
+    private val chapterDownloadRepository: ChapterDownloadRepository = Injekt.get(),
 ) {
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -107,6 +109,7 @@ class DownloadCache(
 
     private val rootDownloadsDirMutex = Mutex()
     private var rootDownloadsDir = RootDirectory(storageManager.getDownloadsDirectory())
+    private var chapterRegistry = emptyMap<Long, String>()
 
     init {
         // Attempt to read cache file
@@ -149,7 +152,17 @@ class DownloadCache(
         mangaTitle: String,
         sourceId: Long,
         skipCache: Boolean,
+        chapterId: Long? = null,
     ): Boolean {
+        if (chapterId != null) {
+            chapterRegistry[chapterId]?.let { relativePath ->
+                val entry = provider.findChapterDirByRelativePath(relativePath)
+                if (entry != null && provider.isValidDownloadEntry(entry)) {
+                    return true
+                }
+            }
+        }
+
         if (skipCache) {
             val source = sourceManager.getOrStub(sourceId)
             return provider.findChapterDir(chapterName, chapterScanlator, chapterUrl, mangaTitle, source) != null
@@ -169,6 +182,20 @@ class DownloadCache(
             }
         }
         return false
+    }
+
+    fun getRegistryPath(chapterId: Long): String? = chapterRegistry[chapterId]
+
+    suspend fun setRegistryEntry(chapterId: Long, relativePath: String) {
+        rootDownloadsDirMutex.withLock {
+            chapterRegistry = chapterRegistry + (chapterId to relativePath)
+        }
+    }
+
+    suspend fun removeRegistryEntry(chapterId: Long) {
+        rootDownloadsDirMutex.withLock {
+            chapterRegistry = chapterRegistry - chapterId
+        }
     }
 
     /**
@@ -464,6 +491,7 @@ class DownloadCache(
                     .awaitAll()
 
                 rootDownloadsDir = updatedRootDir
+                chapterRegistry = chapterDownloadRepository.getAll().associate { it.chapterId to it.relativePath }
             }
 
             _isInitializing.emit(false)

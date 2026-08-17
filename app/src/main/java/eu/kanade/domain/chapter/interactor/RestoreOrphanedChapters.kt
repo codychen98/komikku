@@ -19,11 +19,10 @@ import tachiyomi.source.local.isLocal
  * [eu.kanade.tachiyomi.data.download.DownloadProvider.getValidChapterDirNames] for chapters already
  * in the database. Each such path becomes a new chapter row with `url` prefixed by `orphaned://`.
  *
- * This interactor is invoked after cache invalidation by [eu.kanade.tachiyomi.ui.download.reindexDownloads]
- * (full library) and after reindex merge (parent manga only).
- * When [eu.kanade.tachiyomi.data.download.DownloadProvider.getChapterDirName] includes a hash of the
- * chapter URL and the DB `url` later drifts, a legitimate download folder can be misclassified as
- * orphan. See `roadmap/duplicated chapters/orphan_chapter_duplicates_implementation.md`.
+ * This interactor is invoked after [ReconcileChapterDownloads] during reindex (see
+ * [eu.kanade.tachiyomi.ui.download.reindexDownloads]) and after reindex merge (parent manga only).
+ * Folders that uniquely match a catalog chapter via [DownloadFolderMatcher] are skipped so
+ * URL-drifted downloads are linked by reconcile instead of inserting `orphaned://` rows.
  *
  * Before inserting an orphan, `ComicInfo.xml` is read when present (see [tachiyomi.core.metadata.comicinfo.COMIC_INFO_FILE]); if
  * [OrphanChapterComicInfoLink] finds exactly one matching catalog chapter via `<Web>`, the folder
@@ -77,9 +76,23 @@ class RestoreOrphanedChapters(
                     !fileName.endsWith(Downloader.TMP_DIR_SUFFIX)
             }
 
+        val catalogChapters = dbChapters.filter { !it.url.startsWith("orphaned://", ignoreCase = true) }
+
         val orphanedChapters = mutableListOf<Chapter>()
         for (dir in candidateFiles) {
             val fileName = dir.name ?: continue
+            val comicInfo = readComicInfoFromDownloadEntry(dir)
+
+            if (DownloadFolderMatcher.matchCatalogChapter(
+                    catalogChapters = catalogChapters,
+                    folderName = fileName,
+                    mangaTitle = manga.title,
+                    comicInfo = comicInfo,
+                ) != null
+            ) {
+                continue
+            }
+
             val chapterName = if (fileName.endsWith(".cbz")) {
                 fileName.dropLast(4)
             } else {
@@ -96,7 +109,6 @@ class RestoreOrphanedChapters(
             )
             if (chapterNumber >= 0 && chapterNumber in knownChapterNumbers) continue
 
-            val comicInfo = readComicInfoFromDownloadEntry(dir)
             when (OrphanChapterComicInfoLink.matchCatalogChapterFromComicInfo(comicInfo, dbChapters)) {
                 is OrphanChapterComicInfoLink.ComicInfoWebChapterMatch.Unique,
                 is OrphanChapterComicInfoLink.ComicInfoWebChapterMatch.Ambiguous,

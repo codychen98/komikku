@@ -11,15 +11,35 @@ The format is a modified version of [Keep a Changelog](https://keepachangelog.co
 - `Other` - for technical stuff.
 
 ## [Unreleased]
+
+## [1.15.0] - 2026-08-17
+### Added
+- TachiyomiX 1.6 source runtime: unified `getMangaUpdate` API, `SMangaUpdate` model, and `UpdateMangaFromRemote` interactor ([#1753](https://github.com/komikku-app/komikku/pull/1753))
+- Delegated source support for latest Keiyoushi extensions ([#1775](https://github.com/komikku-app/komikku/pull/1775), [#1780](https://github.com/komikku-app/komikku/pull/1780), [#1781](https://github.com/komikku-app/komikku/pull/1781), [#1797](https://github.com/komikku-app/komikku/pull/1797))
+
+### Changed
+- Migrate manga fetch from split `getMangaDetails` / `getChapterList` to unified `getMangaUpdate` across library update, browse, migration, and built-in sources
+- `SourceManager`: replace `catalogueSources` / `getVisibleCatalogueSources` with `sources` / `getVisibleSources`
+
+### Fixed
+- Fix MangaFire and other Keiyoushi 1.6 extensions failing to load manga details and chapters (`UnsupportedOperationException` on deprecated request methods)
+
+### Other
+- Network layer updates for TachiyomiX 1.6 compatibility (mihon#3248)
+- Model layer: `memo` fields on `SManga` / `SChapter` ([#1761](https://github.com/komikku-app/komikku/pull/1761))
+
+## [1.14.0] - 2026-08-17
 ### Added
 - Add support for `tachiyomix` extension index format (extension stores with `index.pb`)
-- Add support for `tachiyomix` 1.6 extensions
+- Add support for `tachiyomix` 1.6 extension metadata loading
 
 ### Changed
 - Rename extension repos to extension stores
 
 ### Fixed
 - Fix app not reading `tachiyomix.extensionLib` extension metadata
+- Remove `IgnoreGzipInterceptor` for TachiyomiX 1.6 extension client validation (**1.14.1**)
+- Add `okhttp-zstd` dependency for TachiyomiX 1.6 extension compression (**1.14.2**)
 
 ## [v0.19.9] - 2026-04-11
 ### Fixed

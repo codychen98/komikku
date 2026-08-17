@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.source.online.english
+package eu.kanade.tachiyomi.source.online.all
 
 import android.content.Context
 import android.net.Uri
@@ -22,16 +22,13 @@ import exh.util.urlImportFetchSearchManga
 import exh.util.urlImportFetchSearchMangaSuspend
 import org.jsoup.nodes.Document
 import rx.Observable
+import tachiyomi.core.common.util.lang.runAsObservable
 
 class Pururin(delegate: HttpSource, val context: Context) :
     DelegatedHttpSource(delegate),
     MetadataSource<PururinSearchMetadata, Document>,
     UrlImportableSource,
     NamespaceSource {
-    /**
-     * An ISO 639-1 compliant language code (two letters in lower case).
-     */
-    override val lang = "en"
 
     /**
      * The class of the metadata used by this source
@@ -40,7 +37,7 @@ class Pururin(delegate: HttpSource, val context: Context) :
     override fun newMetaInstance() = PururinSearchMetadata()
 
     // Support direct URL importing
-    @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getSearchManga"))
+    @Deprecated("Use the suspend API instead", replaceWith = ReplaceWith("getSearchManga"))
     override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Observable<MangasPage> {
         val trimmedIdQuery = query.trim().removePrefix("id:")
         val newQuery = if ((trimmedIdQuery.toIntOrNull() ?: -1) >= 0) {
@@ -51,7 +48,7 @@ class Pururin(delegate: HttpSource, val context: Context) :
 
         return urlImportFetchSearchManga(context, newQuery) {
             @Suppress("DEPRECATION")
-            super<DelegatedHttpSource>.fetchSearchManga(page, query, filters)
+            super.fetchSearchManga(page, query, filters)
         }
     }
 
@@ -63,13 +60,16 @@ class Pururin(delegate: HttpSource, val context: Context) :
             query
         }
         return urlImportFetchSearchMangaSuspend(context, newQuery) {
-            super<DelegatedHttpSource>.getSearchManga(page, query, filters)
+            super.getSearchManga(page, query, filters)
         }
     }
 
-    override suspend fun getMangaDetails(manga: SManga): SManga {
-        val response = client.newCall(mangaDetailsRequest(manga)).awaitSuccess()
-        return parseToManga(manga, response.asJsoup())
+    @Deprecated("Use the combined suspend API instead", replaceWith = ReplaceWith("getMangaUpdate"))
+    override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
+        return runAsObservable {
+            val response = client.newCall(mangaDetailsRequest(manga)).awaitSuccess()
+            parseToManga(manga, response.asJsoup())
+        }
     }
 
     override suspend fun parseIntoMetadata(metadata: PururinSearchMetadata, input: Document) {

@@ -5,9 +5,12 @@ import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -15,6 +18,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
@@ -1170,30 +1174,34 @@ class SyncChaptersWithSourceTest {
         )
     }
 
-    private fun localSource(): Source {
-        return object : Source {
-            override val id: Long = 0L
-            override val name: String = "Local"
-            override suspend fun getMangaDetails(manga: SManga): SManga = manga
-            override suspend fun getChapterList(manga: SManga): List<SChapter> = emptyList()
-            override suspend fun getPageList(chapter: SChapter): List<Page> = emptyList()
-            override suspend fun getRelatedMangaList(
-                manga: SManga,
-                exceptionHandler: (Throwable) -> Unit,
-                pushResults: suspend (relatedManga: Pair<String, List<SManga>>, completed: Boolean) -> Unit,
-            ) {
-                assertTrue(true)
-            }
-        }
-    }
+    private fun localSource(): Source = testSource(id = 0L, name = "Local")
 
-    private fun remoteSource(): Source {
+    private fun remoteSource(): Source = testSource(id = 1L, name = "Remote")
+
+    private fun testSource(id: Long, name: String): Source {
         return object : Source {
-            override val id: Long = 1L
-            override val name: String = "Remote"
-            override suspend fun getMangaDetails(manga: SManga): SManga = manga
-            override suspend fun getChapterList(manga: SManga): List<SChapter> = emptyList()
+            override val id: Long = id
+            override val name: String = name
+            override val supportsLatest: Boolean = false
+
+            override suspend fun getPopularManga(page: Int): MangasPage =
+                throw UnsupportedOperationException()
+
+            override suspend fun getLatestUpdates(page: Int): MangasPage =
+                throw UnsupportedOperationException()
+
+            override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage =
+                throw UnsupportedOperationException()
+
+            override suspend fun getMangaUpdate(
+                manga: SManga,
+                chapters: List<SChapter>,
+                fetchDetails: Boolean,
+                fetchChapters: Boolean,
+            ): SMangaUpdate = SMangaUpdate(manga, chapters)
+
             override suspend fun getPageList(chapter: SChapter): List<Page> = emptyList()
+
             override suspend fun getRelatedMangaList(
                 manga: SManga,
                 exceptionHandler: (Throwable) -> Unit,

@@ -16,9 +16,7 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.core.preference.asState
-import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.interactor.GetExhSavedSearch
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.interactor.ToggleIncognito
@@ -28,7 +26,6 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.extension.ExtensionManager
-import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.all.MangaDex
@@ -60,11 +57,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import logcat.LogPriority
+import mihon.domain.source.interactor.UpdateMangaFromRemote
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
-import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
@@ -118,7 +115,7 @@ open class BrowseSourceScreenModel(
     // KMK -->
     private val toggleIncognito: ToggleIncognito = Injekt.get(),
     private val extensionManager: ExtensionManager = Injekt.get(),
-    private val syncChaptersWithSource: SyncChaptersWithSource = Injekt.get(),
+    private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get(),
     // KMK <--
 
     // SY -->
@@ -151,13 +148,12 @@ open class BrowseSourceScreenModel(
         // KMK -->
         screenModelScope.launch {
             var retry = 10
-            while (source !is CatalogueSource && retry-- > 0) {
+            while (source is StubSource && retry-- > 0) {
                 // Sometime source is late to load, so we need to wait a bit
                 delay(100)
                 source = sourceManager.getOrStub(sourceId)
             }
-            val source = source
-            if (source !is CatalogueSource) return@launch
+            if (source is StubSource) return@launch
             // KMK <--
 
             screenModelScope.launchIO {
@@ -288,13 +284,7 @@ open class BrowseSourceScreenModel(
 
     fun resetFilters() {
         // KMK -->
-        val source = source
-        // KMK <--
-        if (source !is CatalogueSource) return
-
-        // KMK -->
         setFilters(source.getFilterList())
-
         reloadSavedSearches()
         // KMK <--
     }
@@ -304,8 +294,6 @@ open class BrowseSourceScreenModel(
     }
 
     fun setFilters(filters: FilterList) {
-        if (source !is CatalogueSource) return
-
         mutableState.update {
             it.copy(
                 filters = filters,
@@ -320,11 +308,6 @@ open class BrowseSourceScreenModel(
         savedSearchId: Long? = null,
         // KMK <--
     ) {
-        // KMK -->
-        val source = source
-        // KMK <--
-
-        if (source !is CatalogueSource) return
         // SY -->
         if (filters != null && filters !== state.value.filters) {
             // KMK -->
@@ -350,12 +333,6 @@ open class BrowseSourceScreenModel(
     }
 
     fun searchGenre(genreName: String) {
-        // KMK -->
-        val source = source
-        // KMK <--
-
-        if (source !is CatalogueSource) return
-
         val defaultFilters = source.getFilterList()
         var genreExists = false
 
@@ -425,21 +402,16 @@ open class BrowseSourceScreenModel(
             val fetchMetadataOnAdd = libraryPreferences.fetchMetadataOnAdd().get()
             val fetchChaptersOnAdd = libraryPreferences.fetchChaptersOnAdd().get()
             if (new.favorite && (fetchMetadataOnAdd || fetchChaptersOnAdd)) {
-                withIOContext {
-                    try {
-                        val sManga = manga.toSManga()
-                        if (fetchMetadataOnAdd) {
-                            val remoteMetadata = source.getMangaDetails(sManga)
-                            // Use `manga` instead of `new` so its title got updated with source's `getMangaDetails`
-                            updateManga.awaitUpdateFromSource(manga, remoteMetadata, false, coverCache)
-                        }
-                        if (fetchChaptersOnAdd) {
-                            val chapters = source.getChapterList(sManga)
-                            syncChaptersWithSource.await(chapters, manga, source, false)
-                        }
-                    } catch (e: Exception) {
-                        logcat(LogPriority.ERROR, e)
-                    }
+                try {
+                    // Use `manga` instead of `new` so its title got updated from source metadata
+                    updateMangaFromRemote(
+                        source = source,
+                        manga = manga,
+                        fetchDetails = fetchMetadataOnAdd,
+                        fetchChapters = fetchChaptersOnAdd,
+                    ).getOrThrow()
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR, e)
                 }
             }
             // KMK <--
@@ -583,7 +555,7 @@ open class BrowseSourceScreenModel(
     // KMK -->
     private fun reloadSavedSearches() {
         screenModelScope.launchIO {
-            getExhSavedSearch.await(source.id, (source as CatalogueSource)::getFilterList)
+            getExhSavedSearch.await(source.id, source::getFilterList)
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, EXHSavedSearch::name))
                 .let { savedSearches ->
                     mutableState.update { it.copy(savedSearches = savedSearches.toImmutableList()) }
@@ -612,11 +584,6 @@ open class BrowseSourceScreenModel(
         resetFilters()
         // KMK <--
         screenModelScope.launchIO {
-            // KMK -->
-            val source = source
-            // KMK <--
-            if (source !is CatalogueSource) return@launchIO
-
             // KMK -->
             val search = getExhSavedSearch.awaitOne(loadedSearch.id, source::getFilterList) ?: loadedSearch
             // KMK <--
@@ -660,10 +627,6 @@ open class BrowseSourceScreenModel(
     fun saveSearch(
         name: String,
     ) {
-        // KMK -->
-        val source = source
-        // KMK <--
-        if (source !is CatalogueSource) return
         screenModelScope.launchNonCancellable {
             val query = state.value.toolbarQuery?.takeUnless {
                 it.isBlank() || it == GetRemoteManga.QUERY_POPULAR || it == GetRemoteManga.QUERY_LATEST

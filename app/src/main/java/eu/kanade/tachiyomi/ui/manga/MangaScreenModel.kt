@@ -525,13 +525,15 @@ class MangaScreenModel(
                 val fetchFromSourceTasks = listOf(
                     async { syncTrackers() },
                     async {
-                        // KMK <--
-                        fetchAllFromSource(
-                            manualFetch = false,
-                            fetchDetails = needRefreshInfo,
-                            fetchChapters = needRefreshChapter,
-                        )
-                        // KMK -->
+                        if (needRefreshInfo || needRefreshChapter) {
+                            // KMK <--
+                            fetchAllFromSource(
+                                manualFetch = false,
+                                fetchDetails = needRefreshInfo,
+                                fetchChapters = needRefreshChapter,
+                            )
+                            // KMK -->
+                        }
                     },
                 )
                 fetchFromSourceTasks.awaitAll()

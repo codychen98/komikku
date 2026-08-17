@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.source.online.all.MergedSource
 import logcat.LogPriority
@@ -89,24 +90,31 @@ class UpdateMangaFromRemote(
         return try {
             val chapters = chapterRepository.getChapterByMangaId(manga.id)
                 .sortedBy { it.sourceOrder }
+            val sourceChapters = chapters.map(Chapter::toSChapter)
+            val sourceManga = manga.toSManga()
             val update = withIOContext {
-                // SY -->
-                if (source is EHentai) {
-                    source.getMangaUpdate(
-                        manga = manga.toSManga(),
-                        chapters = chapters.map(Chapter::toSChapter),
-                        fetchDetails = fetchDetails,
-                        fetchChapters = fetchChapters,
-                        throttleFunc = throttleFunc,
-                    )
+                // 1.6 extensions throw if both flags are false; keep this as a local no-op.
+                if (!fetchDetails && !fetchChapters) {
+                    SMangaUpdate(sourceManga, sourceChapters)
                 } else {
-                    // SY <--
-                    source.getMangaUpdate(
-                        manga = manga.toSManga(),
-                        chapters = chapters.map(Chapter::toSChapter),
-                        fetchDetails = fetchDetails,
-                        fetchChapters = fetchChapters,
-                    )
+                    // SY -->
+                    if (source is EHentai) {
+                        source.getMangaUpdate(
+                            manga = sourceManga,
+                            chapters = sourceChapters,
+                            fetchDetails = fetchDetails,
+                            fetchChapters = fetchChapters,
+                            throttleFunc = throttleFunc,
+                        )
+                    } else {
+                        // SY <--
+                        source.getMangaUpdate(
+                            manga = sourceManga,
+                            chapters = sourceChapters,
+                            fetchDetails = fetchDetails,
+                            fetchChapters = fetchChapters,
+                        )
+                    }
                 }
             }
             // KMK -->

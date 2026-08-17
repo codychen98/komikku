@@ -161,7 +161,7 @@ abstract class HttpSource : CatalogueSource {
      */
     @Suppress("DEPRECATION")
     @Deprecated("Use the suspend API instead", ReplaceWith("getPopularManga(page)"))
-    open fun fetchPopularManga(page: Int): Observable<MangasPage> {
+    override fun fetchPopularManga(page: Int): Observable<MangasPage> {
         return client.newCall(popularMangaRequest(page))
             .asObservableSuccess()
             .map { response ->
@@ -193,7 +193,7 @@ abstract class HttpSource : CatalogueSource {
      */
     @Suppress("DEPRECATION")
     @Deprecated("Use the suspend API instead", ReplaceWith("getSearchManga(page, query, filters)"))
-    open fun fetchSearchManga(
+    override fun fetchSearchManga(
         page: Int,
         query: String,
         filters: FilterList,
@@ -240,7 +240,7 @@ abstract class HttpSource : CatalogueSource {
      */
     @Suppress("DEPRECATION")
     @Deprecated("Use the suspend API instead", ReplaceWith("getLatestUpdates(page)"))
-    open fun fetchLatestUpdates(page: Int): Observable<MangasPage> {
+    override fun fetchLatestUpdates(page: Int): Observable<MangasPage> {
         return client.newCall(latestUpdatesRequest(page))
             .asObservableSuccess()
             .map { response ->
@@ -272,7 +272,7 @@ abstract class HttpSource : CatalogueSource {
      */
     @Suppress("DEPRECATION")
     @Deprecated("Use the combined suspend API instead", replaceWith = ReplaceWith("getMangaUpdate"))
-    open fun fetchMangaDetails(manga: SManga): Observable<SManga> {
+    override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
         return client.newCall(mangaDetailsRequest(manga))
             .asObservableSuccess()
             .map { response ->
@@ -356,7 +356,7 @@ abstract class HttpSource : CatalogueSource {
      */
     @Suppress("DEPRECATION")
     @Deprecated("Use the combined suspend API instead", replaceWith = ReplaceWith("getMangaUpdate"))
-    open fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
+    override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
         return client.newCall(chapterListRequest(manga))
             .asObservableSuccess()
             .map { response ->
@@ -397,7 +397,7 @@ abstract class HttpSource : CatalogueSource {
      */
     @Suppress("DEPRECATION")
     @Deprecated("Use the suspend API instead", ReplaceWith("getPageList(chapter)"))
-    open fun fetchPageList(chapter: SChapter): Observable<List<Page>> {
+    override fun fetchPageList(chapter: SChapter): Observable<List<Page>> {
         return client.newCall(pageListRequest(chapter))
             .asObservableSuccess()
             .map { response ->

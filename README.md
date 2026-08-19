@@ -54,6 +54,8 @@ Example (MacroDroid + root shell with a custom path):
 am broadcast -a app.komikku.CREATE_BACKUP -n app.komikku/eu.kanade.tachiyomi.data.backup.BackupBroadcastReceiver --es export_path "/storage/emulated/0/Download/Sync Folder/PCloud Sync/Backup"
 ```
 
+Each run writes `komikku.tachibk` in that folder and replaces the file if it already exists.
+
 ### 5. Ignore Duplicated Chapters (reworked)
 
 1. **Settings → Reader** → turn **Skip duplicate chapters** on to skip duplicated same chapters in the reader.

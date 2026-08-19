@@ -28,11 +28,7 @@ class BackupBroadcastReceiver : BroadcastReceiver() {
         val exportPath = intent.getStringExtra(EXTRA_EXPORT_PATH) ?: DEFAULT_EXPORT_PATH
 
         try {
-            val dir = File(exportPath)
-            if (!dir.exists()) dir.mkdirs()
-
-            val file = File(dir, BACKUP_FILENAME)
-            file.createNewFile()
+            val file = BackupExportFile.prepare(File(exportPath), BACKUP_FILENAME)
 
             BackupCreateJob.startNow(
                 context = context,

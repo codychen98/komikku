@@ -36,6 +36,7 @@ import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -77,7 +78,17 @@ class BackupCreator(
                     .orEmpty()
                     .sortedByDescending { it.name }
                     .drop(MAX_AUTO_BACKUPS - 1)
-                    .forEach { it.delete() }
+                    .forEach { old ->
+                        // KMK -->
+                        val siblingName = old.name?.let { MihonCompatibleBackup.siblingFileName(it) }
+                        // KMK <--
+                        old.delete()
+                        // KMK -->
+                        if (siblingName != null) {
+                            dir?.findFile(siblingName)?.delete()
+                        }
+                        // KMK <--
+                    }
 
                 // Create new file to place backup
                 dir?.createFile(getFilename())
@@ -130,6 +141,10 @@ class BackupCreator(
 
             // Make sure it's a valid backup file
             BackupFileValidator(context).validate(fileUri)
+
+            // KMK -->
+            writeMihonCompatibleSibling(file, byteArray)
+            // KMK <--
 
             if (isAutoBackup) {
                 backupPreferences.lastAutoBackupTimestamp().set(Instant.now().toEpochMilli())
@@ -193,6 +208,36 @@ class BackupCreator(
         if (!options.savedSearchesFeeds) return emptyList()
 
         return feedBackupCreator()
+    }
+
+    private fun writeMihonCompatibleSibling(file: UniFile, backupBytes: ByteArray) {
+        try {
+            val name = file.name ?: return
+            val parent = siblingDirectory(file) ?: return
+            val mihonName = MihonCompatibleBackup.siblingFileName(name)
+            if (mihonName == name) return
+
+            parent.findFile(mihonName)?.let { existing ->
+                existing.filePath?.let { File(it).setWritable(true) }
+                existing.delete()
+            }
+            val mihonFile = parent.createFile(mihonName) ?: return
+            val compatible = MihonCompatibleBackup.protobufBytes(backupBytes)
+            if (compatible.isEmpty()) return
+
+            mihonFile.openOutputStream()
+                .also { (it as? FileOutputStream)?.channel?.truncate(0) }
+                .sink().gzip().buffer().use { it.write(compatible) }
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Failed to write Mihon-compatible backup" }
+        }
+    }
+
+    private fun siblingDirectory(file: UniFile): UniFile? {
+        file.parentFile?.let { return it }
+        val path = file.filePath ?: return null
+        val parent = File(path).parentFile ?: return null
+        return UniFile.fromFile(parent)
     }
     // KMK <--
 

@@ -11,7 +11,7 @@ A personal fork of [Komikku](https://github.com/komikku-app/komikku) with additi
 1. **Custom Chapter Order** — Manually reorder chapters using drag-and-drop (including multi-select move to top/bottom).
 2. **Chapter Exclusion** — Permanently hide specific chapters from the list; restore them from filters when needed.
 3. **Orphaned Chapter Restoration** — Keep downloaded chapters in the database when the site removes them; reindex restores older orphans. Supports **nested chapter folders** on disk, ComicInfo-aware matching on reindex/merge, and cleaner orphan cleanup after merge. When a source **URL changes**, retained downloads and orphan rows reconcile to the new listing where possible.
-4. **Backup via Intent** — Trigger backups programmatically via ADB or automation (e.g. Tasker / MacroDroid), tested on rooted device.
+4. **Backup via Intent** — Trigger backups programmatically via ADB or automation (e.g. Tasker / MacroDroid), tested on rooted device. Each backup also writes a Mihon-readable sibling file.
 5. **Hitomi filtering fix** — Restores working Hitomi filters by fixing `QuerySanitizer` behavior that upstream changes broke.
 6. **Ignore duplicated chapters (reworked)** — In **Settings → Reader**, turn **Skip duplicate chapters** on to skip duplicated same chapters while you read. On each manga’s chapter list, **Skip sub-chapter duplicates** is optional and only shows when that global setting is on; if you turn it on for that manga, the reader also skips sub-chapters (for example 3.1 when 3.0 exists).
 7. **Exclude Sources from Library Update** — Skip chosen sources during global library refresh (manual updates still allowed).
@@ -54,7 +54,11 @@ Example (MacroDroid + root shell with a custom path):
 am broadcast -a app.komikku.CREATE_BACKUP -n app.komikku/eu.kanade.tachiyomi.data.backup.BackupBroadcastReceiver --es export_path "/storage/emulated/0/Download/Sync Folder/PCloud Sync/Backup"
 ```
 
-Each run writes `komikku.tachibk` in that folder and replaces the file if it already exists.
+Each run writes `komikku.tachibk` (full Komikku backup) and `mihon.tachibk` (Mihon-readable copy) in that folder and replaces those files if they already exist.
+
+Restore `komikku.tachibk` in Komikku. Restore `mihon.tachibk` in Mihon. Mihon will not restore Komikku-only data such as custom chapter order, excluded chapters, or Browse feeds.
+
+In-app **Create backup** and automatic backups also write a sibling file next to the Komikku backup when the folder allows it (`app.komikku_DATE.tachibk` plus `app.mihon_DATE.tachibk`).
 
 ### 5. Ignore Duplicated Chapters (reworked)
 

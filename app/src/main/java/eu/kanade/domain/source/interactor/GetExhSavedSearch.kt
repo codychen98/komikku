@@ -63,7 +63,7 @@ class GetExhSavedSearch(
 
     private fun deserializeFilters(filters: JsonArray, originalFilters: FilterList): FilterList? {
         return runCatching {
-            filterSerializer.deserializeStrict(originalFilters, filters)
+            filterSerializer.deserialize(originalFilters, filters)
             originalFilters
         }.onFailure {
             xLogE("Failed to load saved search!", it)

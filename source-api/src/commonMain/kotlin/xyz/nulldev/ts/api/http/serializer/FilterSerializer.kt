@@ -84,20 +84,6 @@ class FilterSerializer {
         }
     }
 
-    /**
-     * Applies [json] onto [filters] without swallowing per-slot errors.
-     * Fails when filter template count does not match [json] length (zip-safe restore).
-     */
-    fun deserializeStrict(filters: FilterList, json: JsonArray) {
-        val targets = filters.filterIsInstance<Filter<Any?>>()
-        require(targets.size == json.size) {
-            "FilterList/JsonArray size mismatch: ${targets.size} filters vs ${json.size} JSON entries"
-        }
-        targets.zip(json).forEach { (filter, element) ->
-            deserialize(filter, element.jsonObject)
-        }
-    }
-
     fun deserialize(filter: Filter<Any?>, json: JsonObject) {
         val serializer = serializers
             .filterIsInstance<Serializer<Filter<Any?>>>()

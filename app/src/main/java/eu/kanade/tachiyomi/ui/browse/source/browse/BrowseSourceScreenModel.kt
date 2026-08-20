@@ -192,7 +192,7 @@ open class BrowseSourceScreenModel(
             } else if (jsonFilters != null) {
                 runCatching {
                     val filtersJson = Json.decodeFromString<JsonArray>(jsonFilters)
-                    filterSerializer.deserializeStrict(filters, filtersJson)
+                    filterSerializer.deserialize(filters, filtersJson)
                     search(filters = filters)
                 }
             }

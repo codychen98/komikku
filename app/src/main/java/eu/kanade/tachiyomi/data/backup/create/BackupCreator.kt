@@ -212,19 +212,40 @@ class BackupCreator(
 
     private fun writeMihonCompatibleSibling(file: UniFile, backupBytes: ByteArray) {
         try {
-            val name = file.name ?: return
-            val parent = siblingDirectory(file) ?: return
+            val name = file.name ?: run {
+                logcat(LogPriority.WARN) { "Skip Mihon sibling: missing backup file name" }
+                return
+            }
             val mihonName = MihonCompatibleBackup.siblingFileName(name)
-            if (mihonName == name) return
+            if (mihonName == name) {
+                logcat(LogPriority.WARN) { "Skip Mihon sibling: name unchanged for $name" }
+                return
+            }
 
+            val path = file.filePath
+            if (path != null) {
+                MihonCompatibleBackup.writeBeside(File(path), backupBytes)
+                return
+            }
+
+            val compatible = MihonCompatibleBackup.protobufBytes(backupBytes)
+            if (compatible.isEmpty()) {
+                logcat(LogPriority.WARN) { "Skip Mihon sibling: empty compatible payload" }
+                return
+            }
+
+            val parent = siblingDirectory(file) ?: run {
+                logcat(LogPriority.WARN) { "Skip Mihon sibling: no parent for $name" }
+                return
+            }
             parent.findFile(mihonName)?.let { existing ->
                 existing.filePath?.let { File(it).setWritable(true) }
                 existing.delete()
             }
-            val mihonFile = parent.createFile(mihonName) ?: return
-            val compatible = MihonCompatibleBackup.protobufBytes(backupBytes)
-            if (compatible.isEmpty()) return
-
+            val mihonFile = parent.createFile(mihonName) ?: run {
+                logcat(LogPriority.WARN) { "Skip Mihon sibling: createFile failed for $mihonName" }
+                return
+            }
             mihonFile.openOutputStream()
                 .also { (it as? FileOutputStream)?.channel?.truncate(0) }
                 .sink().gzip().buffer().use { it.write(compatible) }

@@ -1,7 +1,9 @@
 package eu.kanade.tachiyomi.data.backup.create
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayOutputStream
+import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -57,6 +59,37 @@ class MihonCompatibleBackupTest {
         assertFalse(14 in chapterFields)
         assertTrue(13 in mangaFields)
         assertEquals(setOf(1, 610), backupFields)
+    }
+
+    @Test
+    fun `writeBeside creates mihon sibling beside komikku file`(@TempDir tempDir: File) {
+        val komikku = File(tempDir, "komikku.tachibk").also { it.writeBytes(byteArrayOf(1, 2, 3)) }
+        val backup = bytes(lengthDelimited(1, "manga".toByteArray()))
+
+        val written = MihonCompatibleBackup.writeBeside(komikku, backup)
+
+        assertEquals("mihon.tachibk", written.name)
+        assertTrue(written.isFile)
+        assertTrue(written.length() > 0L)
+        assertEquals(tempDir.absolutePath, written.parent)
+    }
+
+    @Test
+    fun `writeBeside replaces read-only existing mihon sibling`(@TempDir tempDir: File) {
+        val komikku = File(tempDir, "komikku.tachibk").also { it.writeBytes(byteArrayOf(1)) }
+        val existing = File(tempDir, "mihon.tachibk").also {
+            it.writeText("old-mihon")
+            it.setWritable(false)
+        }
+        val backup = bytes(lengthDelimited(1, "manga".toByteArray()))
+
+        val written = MihonCompatibleBackup.writeBeside(komikku, backup)
+
+        assertEquals(existing.absolutePath, written.absolutePath)
+        assertTrue(written.isFile)
+        assertTrue(written.canWrite())
+        assertTrue(written.length() > 0L)
+        assertFalse(String(written.readBytes()).startsWith("old-mihon"))
     }
 
     private data class ProtoField(val field: Int, val wire: Int, val payload: ByteArray)

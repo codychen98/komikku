@@ -1,6 +1,13 @@
 package eu.kanade.tachiyomi.data.backup.create
 
+import eu.kanade.tachiyomi.data.backup.BackupExportFile
+import okio.buffer
+import okio.gzip
+import okio.sink
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 internal object MihonCompatibleBackup {
 
@@ -25,6 +32,28 @@ internal object MihonCompatibleBackup {
 
     fun protobufBytes(komikkuProtobuf: ByteArray): ByteArray {
         return rewrite(komikkuProtobuf, Message.Backup)
+    }
+
+    /**
+     * Writes a Mihon-readable sibling beside [komikkuFile], replacing any existing copy
+     * the same way intent backups replace komikku.tachibk (writable + delete + create).
+     */
+    fun writeBeside(komikkuFile: File, komikkuProtobuf: ByteArray): File {
+        val mihonName = siblingFileName(komikkuFile.name)
+        if (mihonName == komikkuFile.name) {
+            throw IOException("Cannot derive Mihon sibling name from ${komikkuFile.name}")
+        }
+        val parent = komikkuFile.parentFile
+            ?: throw IOException("Missing parent for ${komikkuFile.absolutePath}")
+        val prepared = BackupExportFile.prepare(parent, mihonName)
+        val compatible = protobufBytes(komikkuProtobuf)
+        if (compatible.isEmpty()) {
+            throw IOException("Mihon-compatible backup payload is empty")
+        }
+        FileOutputStream(prepared)
+            .also { it.channel.truncate(0) }
+            .sink().gzip().buffer().use { it.write(compatible) }
+        return prepared
     }
 
     private enum class Message { Backup, Manga, Chapter }

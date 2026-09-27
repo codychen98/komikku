@@ -17,6 +17,7 @@ A personal fork of [Komikku](https://github.com/komikku-app/komikku) with additi
 7. **Exclude Sources from Library Update** — Skip chosen sources during global library refresh (manual updates still allowed).
 8. **Clear Cache via Intent** — Clear app caches and related database data in one broadcast for automation.
 9. **Browse feed behavior** — Browse keeps loaded feeds across navigation, fetches additional rows when needed instead of reloading on every navigation hop, and raises the per-source row cap from **20 to 30**. CopyManga: saved filters apply reliably on the first load.
+10. **MangaDex alternative titles** — MangaDex **More info** lists every alternative title from the API (all locales), each with its own copy button. Refresh the manga if it was cached before this update.
 
 ---
 
@@ -78,6 +79,13 @@ am broadcast -a app.komikku.CLEAR_CACHE -n app.komikku/eu.kanade.tachiyomi.data.
 ```
 
 Clears non-library manga from the database, chapter cache, and page preview cache (as implemented by the receiver).
+
+### 8. MangaDex Alternative Titles
+
+1. Open a MangaDex manga.
+2. Tap **More info** in the description area.
+3. Under **Title**, use the copy icon next to any **Alternative titles** row to copy that title only.
+4. If titles are missing or incomplete, refresh the manga so metadata reloads.
 
 ## To use this fork while keeping your data (rooted device only)
 

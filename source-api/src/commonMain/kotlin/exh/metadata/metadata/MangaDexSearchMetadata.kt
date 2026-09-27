@@ -83,6 +83,11 @@ class MangaDexSearchMetadata : RaisedSearchMetadata(), TrackerIdMetadata {
                 // getItem(mdUrl) { stringResource(SYMR.strings.url) },
                 getItem(cover) { stringResource(SYMR.strings.thumbnail_url) },
                 getItem(title) { stringResource(MR.strings.title) },
+                // One row per alt title (own copy); label only on the first.
+                *altTitles.orEmpty().mapIndexed { index, altTitle ->
+                    val label = if (index == 0) stringResource(SYMR.strings.alt_titles) else ""
+                    label to altTitle
+                }.toTypedArray(),
                 getItem(authors, { it.joinToString() }) { stringResource(SYMR.strings.author) },
                 getItem(artists, { it.joinToString() }) { stringResource(SYMR.strings.artist) },
                 getItem(langFlag) { stringResource(SYMR.strings.language) },

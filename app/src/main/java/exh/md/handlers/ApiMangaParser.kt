@@ -90,15 +90,11 @@ class ApiMangaParser(
                 val mangaAttributesDto = mangaDto.data.attributes
                 mdUuid = mangaDto.data.id
                 title = MdUtil.getTitleFromManga(mangaAttributesDto, lang, preferExtensionLangTitle)
+                // Keep every locale from the API so More info can list all alternative titles
+                // (e.g. en, ja, and ja-ro), not only extension lang + romanized original.
                 altTitles = mangaAttributesDto.altTitles
-                    // KMK -->
-                    .mapNotNull { langMap ->
-                        langMap
-                            .filter { it.key == lang || it.key == "${mangaAttributesDto.originalLanguage}-ro" }
-                            .takeIf { it.isNotEmpty() }
-                    }
                     .flatMap { it.values }
-                    // KMK <--
+                    .distinct()
                     .nullIfEmpty()
 
                 val mangaRelationshipsDto = mangaDto.data.relationships

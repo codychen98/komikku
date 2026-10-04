@@ -127,7 +127,17 @@ class DownloadCache(
                     logcat(LogPriority.ERROR, e) { "Failed to initialize from disk cache" }
                     diskCacheFile.delete()
                 }
+
+                // The registry is otherwise only loaded by renewCache(), which does not run
+                // until renewInterval elapses when a disk cache exists. Load it now so
+                // URL-drifted downloads are detected right after launch.
+                try {
+                    chapterRegistry = loadChapterRegistry()
+                } catch (e: Throwable) {
+                    logcat(LogPriority.ERROR, e) { "Failed to load chapter download registry" }
+                }
             }
+            _changes.send(Unit)
         }
 
         storageManager.changes
@@ -154,16 +164,15 @@ class DownloadCache(
         skipCache: Boolean,
         chapterId: Long? = null,
     ): Boolean {
-        if (chapterId != null) {
-            chapterRegistry[chapterId]?.let { relativePath ->
-                val entry = provider.findChapterDirByRelativePath(relativePath)
+        val registryPath = chapterId?.let { chapterRegistry[it] }
+
+        if (skipCache) {
+            if (registryPath != null) {
+                val entry = provider.findChapterDirByRelativePath(registryPath)
                 if (entry != null && provider.isValidDownloadEntry(entry)) {
                     return true
                 }
             }
-        }
-
-        if (skipCache) {
             val source = sourceManager.getOrStub(sourceId)
             return provider.findChapterDir(chapterName, chapterScanlator, chapterUrl, mangaTitle, source) != null
         }
@@ -172,6 +181,12 @@ class DownloadCache(
 
         val sourceDir = rootDownloadsDir.sourceDirs[sourceId]
         if (sourceDir != null) {
+            // Registry entries are resolved against the in-memory listing only. Probing the
+            // filesystem here runs once per chapter on the manga screen and is both slow
+            // (several SAF queries per chapter) and non-deterministic under provider load.
+            if (registryPath != null && isRegistryEntryCached(registryPath, sourceDir)) {
+                return true
+            }
             val mangaDir = sourceDir.mangaDirs[provider.getMangaDirName(mangaTitle)]
             if (mangaDir != null) {
                 return provider.getValidChapterDirNames(
@@ -182,6 +197,16 @@ class DownloadCache(
             }
         }
         return false
+    }
+
+    private fun isRegistryEntryCached(relativePath: String, sourceDir: SourceDirectory): Boolean {
+        return DownloadRegistryPath.isCached(relativePath) { mangaDirName ->
+            val mangaDir = sourceDir.mangaDirs[mangaDirName]
+                ?: sourceDir.mangaDirs.entries
+                    .firstOrNull { it.key.equals(mangaDirName, ignoreCase = true) }
+                    ?.value
+            mangaDir?.chapterDirs
+        }
     }
 
     fun getRegistryPath(chapterId: Long): String? = chapterRegistry[chapterId]
@@ -491,7 +516,7 @@ class DownloadCache(
                     .awaitAll()
 
                 rootDownloadsDir = updatedRootDir
-                chapterRegistry = chapterDownloadRepository.getAll().associate { it.chapterId to it.relativePath }
+                chapterRegistry = loadChapterRegistry()
             }
 
             _isInitializing.emit(false)
@@ -507,6 +532,10 @@ class DownloadCache(
 
         // Mainly to notify the indexing notifier UI
         notifyChanges()
+    }
+
+    private suspend fun loadChapterRegistry(): Map<Long, String> {
+        return chapterDownloadRepository.getAll().associate { it.chapterId to it.relativePath }
     }
 
     private fun getSources(): List<Source> {

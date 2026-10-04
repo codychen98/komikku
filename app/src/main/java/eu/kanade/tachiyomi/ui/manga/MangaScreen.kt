@@ -401,6 +401,7 @@ class MangaScreen(
             onMultiRestoreClicked = screenModel::restoreChapters,
             onToggleShowExcluded = screenModel::toggleShowExcludedChapters,
             onToggleSkipSubChapterDuplicates = screenModel::toggleSkipSubChapterDuplicates,
+            onToggleHideNonDownloadedDuplicates = screenModel::toggleHideNonDownloadedDuplicates,
             // KMK <--
             onChapterSwipe = screenModel::chapterSwipe,
             onChapterSelected = screenModel::toggleSelection,

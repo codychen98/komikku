@@ -33,6 +33,7 @@ enum class MangaScreenItem {
     CHAPTER_HEADER,
     // KMK -->
     SUB_CHAPTER_FILTER,
+    DOWNLOADED_DUPLICATE_FILTER,
     // KMK <--
     CHAPTER,
 

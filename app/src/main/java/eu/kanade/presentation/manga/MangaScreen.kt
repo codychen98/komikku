@@ -225,6 +225,7 @@ fun MangaScreen(
     onMultiRestoreClicked: (List<ChapterList.Item>) -> Unit = {},
     onToggleShowExcluded: () -> Unit = {},
     onToggleSkipSubChapterDuplicates: () -> Unit = {},
+    onToggleHideNonDownloadedDuplicates: () -> Unit = {},
     // KMK <--
 
     // For chapter swipe
@@ -311,6 +312,7 @@ fun MangaScreen(
             onMultiRestoreClicked = onMultiRestoreClicked,
             onToggleShowExcluded = onToggleShowExcluded,
             onToggleSkipSubChapterDuplicates = onToggleSkipSubChapterDuplicates,
+            onToggleHideNonDownloadedDuplicates = onToggleHideNonDownloadedDuplicates,
             // KMK <--
             onChapterSwipe = onChapterSwipe,
             onChapterSelected = onChapterSelected,
@@ -385,6 +387,7 @@ fun MangaScreen(
             onMultiRestoreClicked = onMultiRestoreClicked,
             onToggleShowExcluded = onToggleShowExcluded,
             onToggleSkipSubChapterDuplicates = onToggleSkipSubChapterDuplicates,
+            onToggleHideNonDownloadedDuplicates = onToggleHideNonDownloadedDuplicates,
             // KMK <--
             onChapterSwipe = onChapterSwipe,
             onChapterSelected = onChapterSelected,
@@ -471,6 +474,7 @@ private fun MangaScreenSmallImpl(
     onMultiRestoreClicked: (List<ChapterList.Item>) -> Unit = {},
     onToggleShowExcluded: () -> Unit = {},
     onToggleSkipSubChapterDuplicates: () -> Unit = {},
+    onToggleHideNonDownloadedDuplicates: () -> Unit = {},
     // KMK <--
 
     // For chapter swipe
@@ -1021,6 +1025,16 @@ private fun MangaScreenSmallImpl(
                             )
                         }
                     }
+
+                    item(
+                        key = MangaScreenItem.DOWNLOADED_DUPLICATE_FILTER,
+                        contentType = MangaScreenItem.DOWNLOADED_DUPLICATE_FILTER,
+                    ) {
+                        HideNonDownloadedDuplicatesChip(
+                            selected = state.manga.hideNonDownloadedDuplicates,
+                            onClick = onToggleHideNonDownloadedDuplicates,
+                        )
+                    }
                     // KMK <--
 
                     sharedChapterItems(
@@ -1103,6 +1117,7 @@ private fun MangaScreenLargeImpl(
     onMultiRestoreClicked: (List<ChapterList.Item>) -> Unit = {},
     onToggleShowExcluded: () -> Unit = {},
     onToggleSkipSubChapterDuplicates: () -> Unit = {},
+    onToggleHideNonDownloadedDuplicates: () -> Unit = {},
     // KMK <--
 
     // For swipe actions
@@ -1631,6 +1646,16 @@ private fun MangaScreenLargeImpl(
                                     )
                                 }
                             }
+
+                            item(
+                                key = MangaScreenItem.DOWNLOADED_DUPLICATE_FILTER,
+                                contentType = MangaScreenItem.DOWNLOADED_DUPLICATE_FILTER,
+                            ) {
+                                HideNonDownloadedDuplicatesChip(
+                                    selected = state.manga.hideNonDownloadedDuplicates,
+                                    onClick = onToggleHideNonDownloadedDuplicates,
+                                )
+                            }
                             // KMK <--
 
                             sharedChapterItems(
@@ -1896,3 +1921,29 @@ fun metadataDescription(source: Source): MetadataDescriptionComposable? {
     }
 }
 // SY <--
+
+// KMK -->
+@Composable
+private fun HideNonDownloadedDuplicatesChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(stringResource(KMR.strings.action_hide_non_downloaded_duplicates)) },
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        leadingIcon = if (selected) {
+            {
+                Icon(
+                    Icons.Filled.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(FilterChipDefaults.IconSize),
+                )
+            }
+        } else {
+            null
+        },
+    )
+}
+// KMK <--

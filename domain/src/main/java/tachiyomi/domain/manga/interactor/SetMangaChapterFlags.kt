@@ -119,6 +119,20 @@ class SetMangaChapterFlags(
             ),
         )
     }
+
+    suspend fun awaitSetHideNonDownloadedDuplicates(manga: Manga, hide: Boolean): Boolean {
+        val newFlags = if (hide) {
+            manga.chapterFlags or Manga.CHAPTER_HIDE_NON_DOWNLOADED_DUPES
+        } else {
+            manga.chapterFlags and Manga.CHAPTER_HIDE_NON_DOWNLOADED_DUPES.inv()
+        }
+        return mangaRepository.update(
+            MangaUpdate(
+                id = manga.id,
+                chapterFlags = newFlags,
+            ),
+        )
+    }
     // KMK <--
 
     private fun Long.setFlag(flag: Long, mask: Long): Long {

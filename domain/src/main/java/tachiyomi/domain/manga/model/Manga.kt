@@ -114,6 +114,10 @@ data class Manga(
 
     val skipSubChapterDuplicates: Boolean
         get() = chapterFlags and CHAPTER_SKIP_SUB_DUPE != 0L
+
+    /** Hide non-downloaded versions of a chapter number when another version is downloaded. */
+    val hideNonDownloadedDuplicates: Boolean
+        get() = chapterFlags and CHAPTER_HIDE_NON_DOWNLOADED_DUPES != 0L
     // KMK <--
 
     companion object {
@@ -148,6 +152,7 @@ data class Manga(
         // KMK -->
         const val CHAPTER_SHOW_EXCLUDED = 0x00008000L
         const val CHAPTER_SKIP_SUB_DUPE = 0x00010000L
+        const val CHAPTER_HIDE_NON_DOWNLOADED_DUPES = 0x00020000L
         // KMK <--
 
         const val CHAPTER_DISPLAY_NAME = 0x00000000L

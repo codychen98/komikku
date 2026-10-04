@@ -69,6 +69,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 // KMK -->
 import eu.kanade.tachiyomi.util.chapter.removeDuplicates as removeDuplicateChapters
+import eu.kanade.tachiyomi.util.chapter.hideNonDownloadedDuplicates
 import eu.kanade.tachiyomi.util.chapter.removeSubChapterDuplicates
 import eu.kanade.tachiyomi.util.chapter.unreadSkippedSubChapterDuplicates
 // KMK <--
@@ -1630,6 +1631,16 @@ class MangaScreenModel(
             updateChapter.awaitAll(chapterUpdates)
         }
     }
+
+    fun toggleHideNonDownloadedDuplicates() {
+        val manga = successState?.manga ?: return
+        screenModelScope.launchNonCancellable {
+            setMangaChapterFlags.awaitSetHideNonDownloadedDuplicates(
+                manga,
+                !manga.hideNonDownloadedDuplicates,
+            )
+        }
+    }
     // KMK <--
 
     fun clearManga(
@@ -2294,7 +2305,17 @@ class MangaScreenModel(
                 val unreadFilter = manga.unreadFilter
                 val downloadedFilter = manga.downloadedFilter
                 val bookmarkedFilter = manga.bookmarkedFilter
-                return asSequence()
+                // KMK -->
+                val dedupedByDownload = if (manga.hideNonDownloadedDuplicates && !isLocalManga) {
+                    hideNonDownloadedDuplicates(
+                        chapterNumber = { it.chapter.chapterNumber },
+                        isDownloaded = { it.isDownloaded },
+                    )
+                } else {
+                    this
+                }
+                // KMK <--
+                return dedupedByDownload.asSequence()
                     // KMK -->
                     .filterNot { (chapter) -> !manga.showExcludedChapters && chapter.excluded }
                     // KMK <--

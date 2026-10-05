@@ -26,6 +26,7 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.extension.ExtensionManager
+import eu.kanade.tachiyomi.source.author.CatalogueCreditRole
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.all.MangaDex
@@ -99,6 +100,7 @@ open class BrowseSourceScreenModel(
     private val filtersJson: String? = null,
     private val savedSearch: Long? = null,
     // SY <--
+    private val creditRole: CatalogueCreditRole? = null,
     private val sourceManager: SourceManager = Injekt.get(),
     sourcePreferences: SourcePreferences = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
@@ -131,6 +133,9 @@ open class BrowseSourceScreenModel(
     var displayMode by sourcePreferences.sourceDisplayMode().asState(screenModelScope)
 
     var source = sourceManager.getOrStub(sourceId)
+
+    private var activeCreditRole: CatalogueCreditRole? = creditRole
+    private val authorCredit: String? = listingQuery?.takeIf { creditRole != null }
 
     // SY -->
     val ehentaiBrowseDisplayMode by exhPreferences.enhancedEHentaiView().asState(screenModelScope)
@@ -308,6 +313,10 @@ open class BrowseSourceScreenModel(
         savedSearchId: Long? = null,
         // KMK <--
     ) {
+        val submittedNewQuery = query != null && query != authorCredit
+        if (submittedNewQuery || filters != null || savedSearchId != null) {
+            activeCreditRole = null
+        }
         // SY -->
         if (filters != null && filters !== state.value.filters) {
             // KMK -->
@@ -333,6 +342,7 @@ open class BrowseSourceScreenModel(
     }
 
     fun searchGenre(genreName: String) {
+        activeCreditRole = null
         val defaultFilters = source.getFilterList()
         var genreExists = false
 
@@ -455,6 +465,10 @@ open class BrowseSourceScreenModel(
 
     // SY -->
     open fun createSourcePagingSource(query: String, filters: FilterList): SourcePagingSource {
+        val role = activeCreditRole
+        if (role != null && query.isNotBlank()) {
+            return AuthorCreditPagingSource(source, query, role)
+        }
         return getRemoteManga(sourceId, query, filters)
     }
     // SY <--

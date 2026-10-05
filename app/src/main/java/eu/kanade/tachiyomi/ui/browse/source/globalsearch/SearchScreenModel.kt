@@ -9,10 +9,12 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.model.MangasPage
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toPersistentMap
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
@@ -53,6 +55,7 @@ abstract class SearchScreenModel(
 
     private var lastQuery: String? = null
     private var lastSourceFilter: SourceFilter? = null
+    private var lastSearchMode: Any? = null
 
     protected var extensionFilter: String? = null
 
@@ -141,17 +144,33 @@ abstract class SearchScreenModel(
         preferences.globalSearchFilterState().toggle()
     }
 
+    /**
+     * Distinguishes a title search from an author-credit search that uses the same text.
+     */
+    protected open fun searchModeKey(): Any? = null
+
+    @Suppress("UNUSED_PARAMETER")
+    protected open suspend fun fetchSearchPage(
+        source: Source,
+        query: String,
+        searchMode: Any?,
+    ): MangasPage {
+        return source.getSearchManga(1, query, source.getFilterList())
+    }
+
     fun search() {
         val query = state.value.searchQuery
         val sourceFilter = state.value.sourceFilter
+        val searchMode = searchModeKey()
 
         if (query.isNullOrBlank()) return
 
-        val sameQuery = this.lastQuery == query
+        val sameQuery = this.lastQuery == query && this.lastSearchMode == searchMode
         if (sameQuery && this.lastSourceFilter == sourceFilter) return
 
         this.lastQuery = query
         this.lastSourceFilter = sourceFilter
+        this.lastSearchMode = searchMode
 
         searchJob?.cancel()
 
@@ -182,7 +201,7 @@ abstract class SearchScreenModel(
 
                     try {
                         val page = withContext(coroutineDispatcher) {
-                            source.getSearchManga(1, query, source.getFilterList())
+                            fetchSearchPage(source, query, searchMode)
                         }
 
                         val titles = page.mangas
@@ -193,6 +212,8 @@ abstract class SearchScreenModel(
                         if (isActive) {
                             updateItem(source, SearchItemResult.Success(titles))
                         }
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         if (isActive) {
                             updateItem(source, SearchItemResult.Error(e))

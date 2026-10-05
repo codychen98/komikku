@@ -52,6 +52,7 @@ import eu.kanade.presentation.more.settings.screen.SettingsEhScreen
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.author.CatalogueCreditRole
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.BulkFavoriteScreenModel
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
@@ -95,6 +96,7 @@ data class BrowseSourceScreen(
      * which was previously opened from `SmartSearchScreen` */
     private val smartSearchConfig: SourcesScreen.SmartSearchConfig? = null,
     // SY <--
+    private val creditRole: CatalogueCreditRole? = null,
 ) : Screen(), AssistContentScreen {
 
     private var assistUrl: String? = null
@@ -116,6 +118,7 @@ data class BrowseSourceScreen(
                 filtersJson = filtersJson,
                 savedSearch = savedSearch,
                 // SY <--
+                creditRole = creditRole,
             )
         }
         val state by screenModel.state.collectAsState()

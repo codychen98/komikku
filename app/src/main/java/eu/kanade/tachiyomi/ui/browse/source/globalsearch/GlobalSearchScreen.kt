@@ -16,6 +16,7 @@ import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.presentation.browse.GlobalSearchScreen
 import eu.kanade.presentation.browse.components.BulkFavoriteDialogs
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.source.author.CatalogueCreditRole
 import eu.kanade.tachiyomi.ui.browse.BulkFavoriteScreenModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
@@ -24,6 +25,7 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 class GlobalSearchScreen(
     val searchQuery: String = "",
     private val extensionFilter: String? = null,
+    private val creditRole: CatalogueCreditRole? = null,
 ) : Screen() {
 
     @Composable
@@ -39,6 +41,7 @@ class GlobalSearchScreen(
             GlobalSearchScreenModel(
                 initialQuery = searchQuery,
                 initialExtensionFilter = extensionFilter,
+                creditRole = creditRole,
             )
         }
         val state by screenModel.state.collectAsState()
@@ -80,12 +83,18 @@ class GlobalSearchScreen(
                 state = state,
                 navigateUp = navigator::pop,
                 onChangeSearchQuery = screenModel::updateSearchQuery,
-                onSearch = { screenModel.search() },
+                onSearch = screenModel::submitSearch,
                 getManga = { screenModel.getManga(it) },
                 onChangeSearchFilter = screenModel::setSourceFilter,
                 onToggleResults = screenModel::toggleFilterResults,
                 onClickSource = {
-                    navigator.push(BrowseSourceScreen(it.id, state.searchQuery))
+                    navigator.push(
+                        BrowseSourceScreen(
+                            sourceId = it.id,
+                            listingQuery = state.searchQuery,
+                            creditRole = screenModel.activeCreditRole,
+                        ),
+                    )
                 },
                 onClickItem = { manga ->
                     // KMK -->

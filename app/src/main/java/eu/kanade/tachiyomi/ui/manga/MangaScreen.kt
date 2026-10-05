@@ -63,6 +63,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.author.CatalogueCreditRole
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.BulkFavoriteScreenModel
@@ -335,6 +336,10 @@ class MangaScreen(
             onRefresh = screenModel::fetchAllFromSource,
             onContinueReading = { continueReading(context, screenModel.getNextUnreadChapter()) },
             onSearch = { query, global -> scope.launch { performSearch(navigator, query, global) } },
+            onCreditSearch = { credit, artist ->
+                val role = if (artist) CatalogueCreditRole.Artist else CatalogueCreditRole.Author
+                navigator.push(GlobalSearchScreen(searchQuery = credit, creditRole = role))
+            },
             // KMK -->
             librarySearch = { query ->
                 scope.launch { performSearch(navigator, query, global = false, library = true) }
@@ -731,7 +736,7 @@ class MangaScreen(
         // KMK <--
     ) {
         if (global) {
-            navigator.push(GlobalSearchScreen(query))
+            navigator.push(GlobalSearchScreen(searchQuery = query))
             return
         }
 

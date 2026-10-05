@@ -192,6 +192,7 @@ fun MangaScreen(
     onRefresh: () -> Unit,
     onContinueReading: () -> Unit,
     onSearch: (query: String, global: Boolean) -> Unit,
+    onCreditSearch: (credit: String, artist: Boolean) -> Unit,
 
     // For cover dialog
     onCoverClicked: () -> Unit,
@@ -285,6 +286,7 @@ fun MangaScreen(
             onRefresh = onRefresh,
             onContinueReading = onContinueReading,
             onSearch = onSearch,
+            onCreditSearch = onCreditSearch,
             onCoverClicked = onCoverClicked,
             onShareClicked = onShareClicked,
             onDownloadActionClicked = onDownloadActionClicked,
@@ -360,6 +362,7 @@ fun MangaScreen(
             onRefresh = onRefresh,
             onContinueReading = onContinueReading,
             onSearch = onSearch,
+            onCreditSearch = onCreditSearch,
             onCoverClicked = onCoverClicked,
             onShareClicked = onShareClicked,
             onDownloadActionClicked = onDownloadActionClicked,
@@ -441,6 +444,7 @@ private fun MangaScreenSmallImpl(
     onRefresh: () -> Unit,
     onContinueReading: () -> Unit,
     onSearch: (query: String, global: Boolean) -> Unit,
+    onCreditSearch: (credit: String, artist: Boolean) -> Unit,
 
     // For cover dialog
     onCoverClicked: () -> Unit,
@@ -832,6 +836,7 @@ private fun MangaScreenSmallImpl(
                             // KMK <--
                             onCoverClick = onCoverClicked,
                             doSearch = onSearch,
+                            onCreditSearch = onCreditSearch,
                             // KMK -->
                             librarySearch = librarySearch,
                             onSourceClick = onSourceClick,
@@ -1084,6 +1089,7 @@ private fun MangaScreenLargeImpl(
     onRefresh: () -> Unit,
     onContinueReading: () -> Unit,
     onSearch: (query: String, global: Boolean) -> Unit,
+    onCreditSearch: (credit: String, artist: Boolean) -> Unit,
 
     // For cover dialog
     onCoverClicked: () -> Unit,
@@ -1470,6 +1476,7 @@ private fun MangaScreenLargeImpl(
                             // KMK <--
                             onCoverClick = onCoverClicked,
                             doSearch = onSearch,
+                            onCreditSearch = onCreditSearch,
                             // KMK -->
                             librarySearch = librarySearch,
                             onSourceClick = onSourceClick,

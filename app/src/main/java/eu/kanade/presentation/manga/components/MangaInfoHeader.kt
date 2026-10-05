@@ -131,6 +131,7 @@ fun MangaInfoBox(
     // KMK <--
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
+    onCreditSearch: (credit: String, artist: Boolean) -> Unit,
     modifier: Modifier = Modifier,
     // KMK -->
     librarySearch: (query: String) -> Unit,
@@ -196,6 +197,7 @@ fun MangaInfoBox(
                     // KMK <--
                     onCoverClick = onCoverClick,
                     doSearch = doSearch,
+                    onCreditSearch = onCreditSearch,
                     // KMK -->
                     librarySearch = librarySearch,
                     onSourceClick = onSourceClick,
@@ -216,6 +218,7 @@ fun MangaInfoBox(
                     // KMK <--
                     onCoverClick = onCoverClick,
                     doSearch = doSearch,
+                    onCreditSearch = onCreditSearch,
                     // KMK -->
                     librarySearch = librarySearch,
                     onSourceClick = onSourceClick,
@@ -494,6 +497,7 @@ private fun MangaAndSourceTitlesLarge(
     // KMK <--
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
+    onCreditSearch: (credit: String, artist: Boolean) -> Unit,
     // KMK -->
     librarySearch: (query: String) -> Unit,
     onSourceClick: () -> Unit,
@@ -557,6 +561,7 @@ private fun MangaAndSourceTitlesLarge(
             isSourceIncognito = isSourceIncognito,
             // KMK <--
             doSearch = doSearch,
+            onCreditSearch = onCreditSearch,
             textAlign = TextAlign.Center,
             // KMK -->
             librarySearch = librarySearch,
@@ -577,6 +582,7 @@ private fun MangaAndSourceTitlesSmall(
     // KMK <--
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
+    onCreditSearch: (credit: String, artist: Boolean) -> Unit,
     // KMK -->
     librarySearch: (query: String) -> Unit,
     onSourceClick: () -> Unit,
@@ -652,6 +658,7 @@ private fun MangaAndSourceTitlesSmall(
                 isSourceIncognito = isSourceIncognito,
                 // KMK <--
                 doSearch = doSearch,
+                onCreditSearch = onCreditSearch,
                 // KMK -->
                 librarySearch = librarySearch,
                 onSourceClick = onSourceClick,
@@ -674,6 +681,7 @@ private fun ColumnScope.MangaContentInfo(
     isSourceIncognito: Boolean,
     // KMK <--
     doSearch: (query: String, global: Boolean) -> Unit,
+    onCreditSearch: (credit: String, artist: Boolean) -> Unit,
     textAlign: TextAlign? = LocalTextStyle.current.textAlign,
     // KMK -->
     librarySearch: (query: String) -> Unit,
@@ -757,7 +765,7 @@ private fun ColumnScope.MangaContentInfo(
                             // KMK <--
                         }
                     },
-                    onClick = { if (!author.isNullOrBlank()) doSearch(author, true) },
+                    onClick = { if (!author.isNullOrBlank()) onCreditSearch(author, false) },
                 ),
             textAlign = textAlign,
         )
@@ -785,7 +793,7 @@ private fun ColumnScope.MangaContentInfo(
                             showMenu = true
                             // KMK <--
                         },
-                        onClick = { doSearch(artist, true) },
+                        onClick = { onCreditSearch(artist, true) },
                     ),
                 textAlign = textAlign,
             )

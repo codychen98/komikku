@@ -18,6 +18,8 @@ A personal fork of [Komikku](https://github.com/komikku-app/komikku) with additi
 8. **Clear Cache via Intent** — Clear app caches and related database data in one broadcast for automation.
 9. **Browse feed behavior** — Browse keeps loaded feeds across navigation, fetches additional rows when needed instead of reloading on every navigation hop, and raises the per-source row cap from **20 to 30**. CopyManga: saved filters apply reliably on the first load.
 10. **MangaDex alternative titles** — MangaDex **More info** lists every alternative title from the API (all locales), each with its own copy button. Refresh the manga if it was cached before this update.
+11. **Author and artist search** — On MangaFire and MangaDex, the original search might return manga under a different author name than the name you search for. Tapping an author or artist now returns manga by that person. If the credit lists more than one name, each name is searched separately and the results are combined. Other sources are unchanged.
+12. **Hide non-downloaded duplicates** — The chapter list used to show every scanlator for a chapter number, including ones you have not downloaded. On each manga, **Hide non-downloaded duplicates** keeps only the downloaded version of that number. A number with no download still shows every version. The reader and downloads are unchanged.
 
 ---
 
@@ -86,6 +88,26 @@ Clears non-library manga from the database, chapter cache, and page preview cach
 2. Tap **More info** in the description area.
 3. Under **Title**, use the copy icon next to any **Alternative titles** row to copy that title only.
 4. If titles are missing or incomplete, refresh the manga so metadata reloads.
+
+### 9. Author and Artist Search
+
+1. On a MangaFire or MangaDex manga, tap the author or artist.
+2. Global search returns manga by that person. Other sources are unchanged.
+3. If the credit lists more than one name, each name is searched separately and the results are combined.
+
+### 10. Hide Non-Downloaded Duplicates
+
+On a manga’s chapter list, turn on **Hide non-downloaded duplicates**. The chip sits above the chapters.
+
+**Before.** Vol.7 Ch.35 is listed twice: the downloaded Akatsuki Scans copy, and the My Darling copy that is not downloaded.
+
+<img src="docs/hide-non-downloaded-duplicates-before.png" alt="Before: Vol.7 Ch.35 from Akatsuki Scans is downloaded, and the same chapter from My Darling is not." width="540">
+
+**After.** With the filter on, only the downloaded copy stays.
+
+<img src="docs/hide-non-downloaded-duplicates-after.png" alt="After: only the downloaded Akatsuki Scans copy of Vol.7 Ch.35 remains." width="540">
+
+A chapter number with no download still shows every version. Delete the downloaded copy and the hidden versions show again. This only changes the list. Reading and downloading are unchanged.
 
 ## To use this fork while keeping your data (rooted device only)
 

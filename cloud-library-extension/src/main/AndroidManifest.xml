@@ -4,9 +4,8 @@
     <uses-feature android:name="tachiyomi.extension" />
 
     <application
-        android:icon="@android:drawable/ic_menu_gallery"
-        android:label="Cloud Library"
-        android:allowsBackup="false">
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="Cloud Library">
         <meta-data
             android:name="tachiyomi.extension.class"
             android:value=".CloudLibraryFactory" />

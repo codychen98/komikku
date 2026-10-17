@@ -21,6 +21,7 @@ import okio.BufferedSink
 import okio.source
 import java.io.ByteArrayInputStream
 import java.io.InputStream
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class PCloudClient(
@@ -64,13 +65,16 @@ class PCloudClient(
         list(parent).any { it.name == name }
     }
 
-    override suspend fun mkdirs(path: String) = withContext(Dispatchers.IO) {
-        val normalized = CloudPathUtil.normalize(path)
-        if (normalized.isEmpty()) return@withContext
-        apiGet("createfolderifnotexists", "path" to pcloudPath(normalized))
+    override suspend fun mkdirs(path: String) {
+        withContext(Dispatchers.IO) {
+            val normalized = CloudPathUtil.normalize(path)
+            if (normalized.isEmpty()) return@withContext
+            apiGet("createfolderifnotexists", "path" to pcloudPath(normalized))
+            Unit
+        }
     }
 
-    override suspend fun uploadFile(path: String, stream: InputStream, length: Long) =
+    override suspend fun uploadFile(path: String, stream: InputStream, length: Long) {
         withContext(Dispatchers.IO) {
             val normalized = CloudPathUtil.normalize(path)
             val parent = CloudPathUtil.parent(normalized)
@@ -103,7 +107,9 @@ class PCloudClient(
                 }
                 parseResult(body)
             }
+            Unit
         }
+    }
 
     override suspend fun downloadFile(path: String): InputStream = withContext(Dispatchers.IO) {
         val link = resolveFileLink(path)
@@ -116,32 +122,38 @@ class PCloudClient(
         ByteArrayInputStream(response.body.bytes()).also { response.close() }
     }
 
-    override suspend fun delete(path: String) = withContext(Dispatchers.IO) {
-        val normalized = CloudPathUtil.normalize(path)
-        val entries = list(CloudPathUtil.parent(normalized))
-        val entry = entries.find { it.name == CloudPathUtil.name(normalized) }
-            ?: return@withContext
-        val method = if (entry.isDir) "deletefolder" else "deletefile"
-        apiGet(method, "path" to pcloudPath(normalized))
+    override suspend fun delete(path: String) {
+        withContext(Dispatchers.IO) {
+            val normalized = CloudPathUtil.normalize(path)
+            val entries = list(CloudPathUtil.parent(normalized))
+            val entry = entries.find { it.name == CloudPathUtil.name(normalized) }
+                ?: return@withContext
+            val method = if (entry.isDir) "deletefolder" else "deletefile"
+            apiGet(method, "path" to pcloudPath(normalized))
+            Unit
+        }
     }
 
-    override suspend fun move(from: String, to: String) = withContext(Dispatchers.IO) {
-        val fromNorm = CloudPathUtil.normalize(from)
-        val toNorm = CloudPathUtil.normalize(to)
-        val toParent = CloudPathUtil.parent(toNorm)
-        val toName = CloudPathUtil.name(toNorm)
-        if (toParent.isNotEmpty()) mkdirs(toParent)
+    override suspend fun move(from: String, to: String) {
+        withContext(Dispatchers.IO) {
+            val fromNorm = CloudPathUtil.normalize(from)
+            val toNorm = CloudPathUtil.normalize(to)
+            val toParent = CloudPathUtil.parent(toNorm)
+            val toName = CloudPathUtil.name(toNorm)
+            if (toParent.isNotEmpty()) mkdirs(toParent)
 
-        val entries = list(CloudPathUtil.parent(fromNorm))
-        val entry = entries.find { it.name == CloudPathUtil.name(fromNorm) }
-            ?: throw CloudStorageException("move: source not found: $from")
-        val method = if (entry.isDir) "renamefolder" else "renamefile"
-        apiGet(
-            method,
-            "path" to pcloudPath(fromNorm),
-            "topath" to pcloudPath(toParent.ifEmpty { "/" }),
-            "toname" to toName,
-        )
+            val entries = list(CloudPathUtil.parent(fromNorm))
+            val entry = entries.find { it.name == CloudPathUtil.name(fromNorm) }
+                ?: throw CloudStorageException("move: source not found: $from")
+            val method = if (entry.isDir) "renamefolder" else "renamefile"
+            apiGet(
+                method,
+                "path" to pcloudPath(fromNorm),
+                "topath" to pcloudPath(toParent.ifEmpty { "/" }),
+                "toname" to toName,
+            )
+            Unit
+        }
     }
 
     suspend fun resolveFileLink(path: String): String {

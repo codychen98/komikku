@@ -62,6 +62,8 @@ import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.cache.PagePreviewCache
+import eu.kanade.tachiyomi.data.cloud.CloudReconcileWorker
+import eu.kanade.tachiyomi.data.cloud.CloudStorageClientFactory
 import eu.kanade.tachiyomi.data.export.LibraryExporter
 import eu.kanade.tachiyomi.data.export.LibraryExporter.ExportOptions
 import eu.kanade.tachiyomi.data.sync.SyncDataJob
@@ -72,9 +74,11 @@ import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.displayablePath
@@ -85,6 +89,8 @@ import tachiyomi.domain.backup.service.BackupPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.storage.service.CloudStorageMode
+import tachiyomi.domain.storage.service.CloudStoragePreferences
 import tachiyomi.domain.storage.service.StorageManager.Companion.allowAccessStorage
 import tachiyomi.domain.storage.service.StorageManager.Companion.directoryAccessible
 import tachiyomi.domain.storage.service.StoragePreferences
@@ -122,6 +128,9 @@ object SettingsDataScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val backupPreferences = Injekt.get<BackupPreferences>()
         val storagePreferences = Injekt.get<StoragePreferences>()
+        // CLOUD -->
+        val cloudStoragePreferences = remember { Injekt.get<CloudStoragePreferences>() }
+        // CLOUD <--
 
         val syncPreferences = remember { Injekt.get<SyncPreferences>() }
         val syncService by syncPreferences.syncService().collectAsState()
@@ -133,6 +142,9 @@ object SettingsDataScreen : SearchableSettings {
             getBackupAndRestoreGroup(backupPreferences = backupPreferences),
             getDataGroup(),
             getExportGroup(),
+            // CLOUD -->
+            getCloudStorageGroup(cloudStoragePreferences),
+            // CLOUD <--
         ) +
             // SY -->
             getSyncPreferences(syncPreferences = syncPreferences, syncService = syncService)
@@ -779,6 +791,146 @@ object SettingsDataScreen : SearchableSettings {
             },
         )
     }
+
+    // CLOUD -->
+    @Composable
+    private fun getCloudStorageGroup(cloudPreferences: CloudStoragePreferences): Preference.PreferenceGroup {
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        val mode by cloudPreferences.mode().collectAsState()
+
+        val modeEntries = persistentMapOf(
+            CloudStorageMode.OFF to stringResource(KMR.strings.pref_cloud_storage_off),
+            CloudStorageMode.WEBDAV to stringResource(KMR.strings.pref_cloud_storage_webdav),
+            CloudStorageMode.PCLOUD to stringResource(KMR.strings.pref_cloud_storage_pcloud),
+        )
+
+        val items = buildList {
+            add(
+                Preference.PreferenceItem.ListPreference(
+                    preference = cloudPreferences.mode(),
+                    entries = modeEntries,
+                    title = stringResource(KMR.strings.pref_cloud_storage_mode),
+                ),
+            )
+            add(
+                Preference.PreferenceItem.InfoPreference(
+                    stringResource(KMR.strings.pref_cloud_extension_note),
+                ),
+            )
+            when (mode) {
+                CloudStorageMode.WEBDAV -> {
+                    add(
+                        Preference.PreferenceItem.EditTextPreference(
+                            preference = cloudPreferences.webdavUrl(),
+                            title = stringResource(KMR.strings.pref_cloud_webdav_url),
+                            subtitle = stringResource(KMR.strings.pref_cloud_webdav_url_summ),
+                        ),
+                    )
+                    add(
+                        Preference.PreferenceItem.EditTextPreference(
+                            preference = cloudPreferences.webdavUsername(),
+                            title = stringResource(KMR.strings.pref_cloud_webdav_username),
+                        ),
+                    )
+                    add(
+                        Preference.PreferenceItem.EditTextPreference(
+                            preference = cloudPreferences.webdavPassword(),
+                            title = stringResource(KMR.strings.pref_cloud_webdav_password),
+                        ),
+                    )
+                    add(
+                        Preference.PreferenceItem.EditTextPreference(
+                            preference = cloudPreferences.webdavFolder(),
+                            title = stringResource(KMR.strings.pref_cloud_webdav_folder),
+                            subtitle = stringResource(KMR.strings.pref_cloud_webdav_folder_summ),
+                        ),
+                    )
+                }
+                CloudStorageMode.PCLOUD -> {
+                    add(
+                        Preference.PreferenceItem.EditTextPreference(
+                            preference = cloudPreferences.pcloudHost(),
+                            title = stringResource(KMR.strings.pref_cloud_pcloud_host),
+                            subtitle = stringResource(KMR.strings.pref_cloud_pcloud_host_summ),
+                        ),
+                    )
+                    add(
+                        Preference.PreferenceItem.EditTextPreference(
+                            preference = cloudPreferences.pcloudToken(),
+                            title = stringResource(KMR.strings.pref_cloud_pcloud_token),
+                        ),
+                    )
+                }
+                CloudStorageMode.OFF -> Unit
+            }
+            if (mode != CloudStorageMode.OFF) {
+                add(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = cloudPreferences.deleteLocalAfterUpload(),
+                        title = stringResource(KMR.strings.pref_cloud_delete_local),
+                        subtitle = stringResource(KMR.strings.pref_cloud_delete_local_summ),
+                    ),
+                )
+                add(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = cloudPreferences.autoMigrate(),
+                        title = stringResource(KMR.strings.pref_cloud_auto_migrate),
+                        subtitle = stringResource(KMR.strings.pref_cloud_auto_migrate_summ),
+                    ),
+                )
+                add(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(KMR.strings.pref_cloud_test_connection),
+                        onClick = {
+                            scope.launch {
+                                val result = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        val client = CloudStorageClientFactory.create(cloudPreferences)
+                                        client.list("").size
+                                    }
+                                }
+                                result.fold(
+                                    onSuccess = { count ->
+                                        context.toast(
+                                            context.stringResource(
+                                                KMR.strings.pref_cloud_test_connection_ok,
+                                                count,
+                                            ),
+                                        )
+                                    },
+                                    onFailure = { e ->
+                                        context.toast(
+                                            context.stringResource(
+                                                KMR.strings.pref_cloud_test_connection_fail,
+                                                e.message ?: e.toString(),
+                                            ),
+                                        )
+                                    },
+                                )
+                            }
+                        },
+                    ),
+                )
+                add(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(KMR.strings.pref_cloud_adopt),
+                        subtitle = stringResource(KMR.strings.pref_cloud_adopt_summ),
+                        onClick = {
+                            CloudReconcileWorker.enqueue(context)
+                            context.toast(KMR.strings.pref_cloud_adopt_started)
+                        },
+                    ),
+                )
+            }
+        }
+
+        return Preference.PreferenceGroup(
+            title = stringResource(KMR.strings.pref_cloud_storage_group),
+            preferenceItems = items.toPersistentList(),
+        )
+    }
+    // CLOUD <--
 
     // KMK -->
     @Composable

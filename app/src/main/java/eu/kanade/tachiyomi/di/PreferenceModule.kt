@@ -19,6 +19,7 @@ import tachiyomi.domain.backup.service.BackupPreferences
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.history.service.HistoryPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.storage.service.CloudStoragePreferences
 import tachiyomi.domain.storage.service.StoragePreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import uy.kohesive.injekt.api.InjektModule
@@ -76,6 +77,11 @@ class PreferenceModule(val app: Application) : InjektModule {
                 preferenceStore = get(),
             )
         }
+        // CLOUD -->
+        addSingletonFactory {
+            CloudStoragePreferences(preferenceStore = get())
+        }
+        // CLOUD <--
         addSingletonFactory {
             UiPreferences(get())
         }

@@ -258,4 +258,36 @@
     <!-- KMK: Sub-chapter dedup -->
     <string name="action_skip_sub_chapter_duplicates">Skip sub-chapter duplicates</string>
     <string name="action_hide_non_downloaded_duplicates">Hide non-downloaded duplicates</string>
+    <!-- CLOUD: Cloud downloads (WebDAV / pCloud) -->
+    <string name="pref_cloud_storage_group">Cloud downloads</string>
+    <string name="pref_cloud_storage_mode">Cloud storage</string>
+    <string name="pref_cloud_storage_off">Off</string>
+    <string name="pref_cloud_storage_webdav">WebDAV</string>
+    <string name="pref_cloud_storage_pcloud">pCloud</string>
+    <string name="pref_cloud_webdav_url">WebDAV URL</string>
+    <string name="pref_cloud_webdav_url_summ">Server address for chapter uploads (separate from backup sync)</string>
+    <string name="pref_cloud_webdav_username">WebDAV username</string>
+    <string name="pref_cloud_webdav_password">WebDAV password</string>
+    <string name="pref_cloud_webdav_folder">WebDAV folder</string>
+    <string name="pref_cloud_webdav_folder_summ">Remote folder that will contain komikku-library/</string>
+    <string name="pref_cloud_pcloud_host">pCloud API host</string>
+    <string name="pref_cloud_pcloud_host_summ">https://api.pcloud.com or https://eapi.pcloud.com (EU)</string>
+    <string name="pref_cloud_pcloud_token">pCloud access token</string>
+    <string name="pref_cloud_delete_local">Delete local after upload</string>
+    <string name="pref_cloud_delete_local_summ">Only after verify and migrate succeed</string>
+    <string name="pref_cloud_auto_migrate">Auto-migrate to Cloud Library</string>
+    <string name="pref_cloud_auto_migrate_summ">Requires the Cloud Library extension installed and configured separately</string>
+    <string name="pref_cloud_extension_note">Configure the Cloud Library extension separately (Browse → Extensions). Credential sync is deferred.</string>
+    <string name="pref_cloud_test_connection">Test connection</string>
+    <string name="pref_cloud_test_connection_ok">Connection OK (%1$d entries)</string>
+    <string name="pref_cloud_test_connection_fail">Connection failed: %1$s</string>
+    <string name="pref_cloud_adopt">Adopt existing cloud files</string>
+    <string name="pref_cloud_adopt_summ">Move rclone-style downloads/ trees into komikku-library/ and migrate matches</string>
+    <string name="pref_cloud_adopt_started">Cloud adopt started</string>
+    <string name="cloud_upload_title">Cloud upload</string>
+    <string name="cloud_upload_progress">Uploading %1$s</string>
+    <string name="cloud_upload_error">Cloud upload failed: %1$s</string>
+    <string name="cloud_migrate_skipped">Cloud Library extension missing — upload kept local files</string>
+    <string name="cloud_reconcile_complete">Adopted %1$d manga; %2$d unmatched</string>
+    <string name="cloud_reconcile_error">Cloud adopt failed: %1$s</string>
 </resources>

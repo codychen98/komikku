@@ -44,6 +44,7 @@ rootProject.name = "Komikku"
 include(":app")
 include(":core-metadata")
 include(":core:archive")
+include(":core:cloudstorage")
 include(":core:common")
 include(":data")
 include(":domain")

@@ -6,6 +6,7 @@ import eu.kanade.domain.chapter.model.toSChapter
 import eu.kanade.domain.manga.model.getComicInfo
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.cache.ChapterCache
+import eu.kanade.tachiyomi.data.cloud.CloudUploadWorker
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.library.LibraryUpdateNotifier
 import eu.kanade.tachiyomi.data.notification.NotificationHandler
@@ -64,6 +65,8 @@ import tachiyomi.domain.download.repository.ChapterDownloadRepository
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.domain.storage.service.CloudStorageMode
+import tachiyomi.domain.storage.service.CloudStoragePreferences
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.Injekt
@@ -91,6 +94,9 @@ class Downloader(
     // SY -->
     private val sourcePreferences: SourcePreferences = Injekt.get(),
     // SY <--
+    // CLOUD -->
+    private val cloudStoragePreferences: CloudStoragePreferences = Injekt.get(),
+    // CLOUD <--
 ) {
 
     /**
@@ -441,7 +447,11 @@ class Downloader(
             )
 
             // Only rename the directory if it's downloaded
-            val saveAsCbz = downloadPreferences.saveChaptersAsCBZ().get()
+            // CLOUD -->
+            // Force plain-folder output while cloud mode is on (CBZ cannot be uploaded as pages).
+            val cloudModeOn = cloudStoragePreferences.mode().get() != CloudStorageMode.OFF
+            val saveAsCbz = downloadPreferences.saveChaptersAsCBZ().get() && !cloudModeOn
+            // CLOUD <--
             if (saveAsCbz) {
                 archiveChapter(mangaDir, chapterDirname, tmpDir)
             } else {
@@ -467,6 +477,11 @@ class Downloader(
             DiskUtil.createNoMediaFile(tmpDir, context)
 
             download.status = Download.State.DOWNLOADED
+            // CLOUD -->
+            if (cloudModeOn) {
+                CloudUploadWorker.enqueue(context, download.manga.id, download.chapter.id)
+            }
+            // CLOUD <--
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
             // If the page list threw, it will resume here

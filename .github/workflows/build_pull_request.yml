@@ -129,3 +129,12 @@ jobs:
         with:
           name: mapping-${{ github.sha }}
           path: app/build/outputs/mapping/preview
+
+      - name: Build Cloud Library extension APK
+        run: ./gradlew -p cloud-library-extension assembleRelease
+
+      - name: Upload Cloud Library extension APK
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: cloud-library-extension-${{ github.sha }}
+          path: cloud-library-extension/build/outputs/apk/release/*.apk

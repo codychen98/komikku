@@ -13,12 +13,23 @@ IDs must match the fork migrate targets. Do not change them.
 
 ## Build
 
-This is a standalone Gradle project (not part of the Komikku multi-module build).
+This is a standalone Gradle project (not part of the Komikku multi-module build). CI builds it on every `master` push and PR via:
 
 ```bash
-cd cloud-library-extension
-./gradlew assembleDebug
+./gradlew -p cloud-library-extension assembleRelease
 ```
+
+Artifacts:
+- Push CI: `cloud-library-extension-release`
+- PR CI: `cloud-library-extension-<sha>`
+
+Local (from repo root, with the root `gradlew`):
+
+```bash
+./gradlew -p cloud-library-extension assembleRelease
+```
+
+If `keystore.properties` exists at the repo root (or in this folder), the release APK is signed with that keystore.
 
 Install the APK, then configure credentials under Browse → Extensions → Cloud Library. Fork cloud prefs (Settings → Data → Cloud downloads) are separate in v1.
 

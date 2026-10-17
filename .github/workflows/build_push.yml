@@ -60,3 +60,12 @@ jobs:
         with:
           name: komikku-release
           path: app/build/outputs/apk/release/*.apk
+
+      - name: Build Cloud Library extension APK
+        run: ./gradlew -p cloud-library-extension assembleRelease
+
+      - name: Upload Cloud Library extension APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-library-extension-release
+          path: cloud-library-extension/build/outputs/apk/release/*.apk

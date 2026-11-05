@@ -393,7 +393,12 @@ class SyncChaptersWithSource(
         // <-- EXH
 
         if (removedChapters.isNotEmpty()) {
-            val effectiveRemovedChapters = removedChapters.filterNot { it.id in staleDownloadedDuplicateChapterIdsToRemove }
+            // orphaned:// rows are retained for CleanupOrphanedDuplicateChapters /
+            // RestoreOrphanedChapters / ComicInfo retarget — not purged as normal source removals.
+            val effectiveRemovedChapters = removedChapters.filterNot { chapter ->
+                chapter.id in staleDownloadedDuplicateChapterIdsToRemove ||
+                    chapter.url.startsWith("orphaned://", ignoreCase = true)
+            }
             val (downloadedRemovedChapters, notDownloadedRemovedChapters) = effectiveRemovedChapters.partition { chapter ->
                 downloadManager.isChapterDownloaded(
                     chapterName = chapter.name,

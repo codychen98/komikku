@@ -146,6 +146,13 @@ class OrphanChapterComicInfoLinkTest {
             url = "orphaned://orph_99",
             name = "orph_99",
         )
+        val result = OrphanChapterComicInfoLink.matchCatalogChapterFromComicInfo(
+            comicInfo,
+            listOf(onlyOrphan),
+        )
+        assertIs<ComicInfoWebChapterMatch.None>(result)
+    }
+
     @Test
     fun `mergeOrphanProgressOntoCatalogChapter combines read bookmark and last page`() {
         val catalog = Chapter.create().copy(id = 1L, read = false, bookmark = false, lastPageRead = 2L)

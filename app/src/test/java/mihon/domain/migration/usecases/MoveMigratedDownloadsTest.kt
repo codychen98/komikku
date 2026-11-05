@@ -3,7 +3,6 @@ package mihon.domain.migration.usecases
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadProvider
-import io.mockk.anyOrNull
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -61,10 +60,10 @@ class MoveMigratedDownloadsTest {
         every { targetDir.findFile("Chapter 10_new") } returns mockk()
 
         every { provider.findMangaDir("Old", any()) } returns oldDir
-        every { provider.getValidChapterDirNames(any(), anyOrNull(), any()) } returns listOf("Chapter 10_old")
+        every { provider.getValidChapterDirNames(any(), any(), any()) } returns listOf("Chapter 10_old")
         every { provider.getMangaDir(any(), any()) } returns Result.success(targetDir)
         every {
-            provider.getChapterDirName(any(), anyOrNull(), any(), anyOrNull(), anyOrNull())
+            provider.getChapterDirName(any(), any(), any(), any(), any())
         } returns "Chapter 10_new"
 
         val repository = mockk<ChapterDownloadRepository>(relaxed = true)
@@ -103,7 +102,7 @@ class MoveMigratedDownloadsTest {
         val oldDir = mockk<UniFile>()
         every { oldDir.findFile("Chapter 10_old") } returns sourceFile
         every { provider.findMangaDir("Old", any()) } returns oldDir
-        every { provider.getValidChapterDirNames(any(), anyOrNull(), any()) } returns listOf("Chapter 10_old")
+        every { provider.getValidChapterDirNames(any(), any(), any()) } returns listOf("Chapter 10_old")
 
         val destination = mockk<UniFile>()
         every { destination.openOutputStream() } returns ByteArrayOutputStream()
@@ -112,7 +111,7 @@ class MoveMigratedDownloadsTest {
         every { targetDir.createFile("Chapter 10_new.cbz") } returns destination
         every { provider.getMangaDir(any(), any()) } returns Result.success(targetDir)
         every {
-            provider.getChapterDirName(any(), anyOrNull(), any(), anyOrNull(), anyOrNull())
+            provider.getChapterDirName(any(), any(), any(), any(), any())
         } returns "Chapter 10_new"
         every { provider.getRelativeChapterPath(any(), any(), "Chapter 10_new.cbz") } returns "NewSource/New/Chapter 10_new.cbz"
 
@@ -160,7 +159,7 @@ class MoveMigratedDownloadsTest {
         val oldDir = mockk<UniFile>()
         every { oldDir.findFile("Chapter 1_abc123") } returns sourceFile
         every { provider.findMangaDir("Old", any()) } returns oldDir
-        every { provider.getValidChapterDirNames(any(), anyOrNull(), any()) } returns listOf("Chapter 1_abc123")
+        every { provider.getValidChapterDirNames(any(), any(), any()) } returns listOf("Chapter 1_abc123")
 
         val createdDir = mockk<UniFile>()
         val targetDir = mockk<UniFile>()

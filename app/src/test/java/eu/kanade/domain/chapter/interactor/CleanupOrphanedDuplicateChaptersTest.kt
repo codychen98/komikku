@@ -4,7 +4,6 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.Source
-import io.mockk.anyOrNull
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -13,6 +12,7 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
+import tachiyomi.core.metadata.comicinfo.ComicInfo
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
@@ -33,7 +33,6 @@ class CleanupOrphanedDuplicateChaptersTest {
         val manga = Manga.create().copy(
             id = 15L,
             source = 99L,
-            title = "Gentleman's Maid Sophie",
             ogTitle = "Gentleman's Maid Sophie",
         )
         val catalog = Chapter.create().copy(
@@ -68,7 +67,7 @@ class CleanupOrphanedDuplicateChaptersTest {
         val downloadProvider = mockk<DownloadProvider>()
         every { downloadProvider.findMangaDir(manga.ogTitle, any()) } returns mangaDir
         every {
-            downloadProvider.getChapterDirName(any(), anyOrNull(), any(), anyOrNull(), anyOrNull())
+            downloadProvider.getChapterDirName(any(), any(), any(), any(), any())
         } returns "Chapter 10_aabbcc"
         every { downloadProvider.getRelativeChapterPath(any(), any(), any()) } answers {
             "Source/Title/${thirdArg<String>()}"
@@ -114,5 +113,111 @@ class CleanupOrphanedDuplicateChaptersTest {
         assertEquals(true, updateSlot.captured.read)
         coVerify { chapterRepository.removeChaptersWithIds(listOf(9L)) }
         verify { entry.renameTo("Chapter 10_aabbcc") }
+    }
+
+    @Test
+    fun `falls back to ComicInfo Web when the retarget rename fails`() = runBlocking {
+        val manga = Manga.create().copy(
+            id = 15L,
+            source = 99L,
+            ogTitle = "Gentleman's Maid Sophie",
+        )
+        val catalog = Chapter.create().copy(
+            id = 5L,
+            mangaId = manga.id,
+            name = "Chapter 10",
+            chapterNumber = 10.0,
+            sourceOrder = 1L,
+            url = "/chapter/10/",
+            read = false,
+        )
+        val orphan = Chapter.create().copy(
+            id = 9L,
+            mangaId = manga.id,
+            name = "Fallguy69420_Chapter 10",
+            chapterNumber = 69420.0,
+            url = "orphaned://Fallguy69420_Chapter 10",
+            read = true,
+        )
+
+        val entry = mockk<UniFile>()
+        every { entry.name } returns "Fallguy69420_Chapter 10"
+        every { entry.isFile } returns false
+        every { entry.isDirectory } returns true
+        every { entry.renameTo(any()) } returns false
+
+        val mangaDir = mockk<UniFile>()
+        every { mangaDir.findFile(any()) } answers {
+            if (firstArg<String>() == "Fallguy69420_Chapter 10") entry else null
+        }
+
+        val downloadProvider = mockk<DownloadProvider>()
+        every { downloadProvider.findMangaDir(manga.ogTitle, any()) } returns mangaDir
+        every {
+            downloadProvider.getChapterDirName(any(), any(), any(), any(), any())
+        } returns "Chapter 10_aabbcc"
+        every { downloadProvider.getRelativeChapterPath(any(), any(), any()) } answers {
+            "Source/Title/${thirdArg<String>()}"
+        }
+
+        val source = mockk<Source>()
+        every { source.id } returns manga.source
+        val sourceManager = mockk<SourceManager>()
+        coEvery { sourceManager.getOrStub(manga.source) } returns source
+
+        val getManga = mockk<GetManga>()
+        coEvery { getManga.await(manga.id) } returns manga
+        val getChaptersByMangaId = mockk<GetChaptersByMangaId>()
+        coEvery { getChaptersByMangaId.await(manga.id) } returns listOf(catalog, orphan)
+
+        val chapterRepository = mockk<ChapterRepository>(relaxed = true)
+        val updateSlot = slot<ChapterUpdate>()
+        coEvery { chapterRepository.update(capture(updateSlot)) } returns Unit
+
+        val chapterDownloadRepository = mockk<ChapterDownloadRepository>(relaxed = true)
+        coEvery { chapterDownloadRepository.getByChapterId(any()) } returns null
+
+        val comicInfo = ComicInfo(
+            title = null,
+            series = null,
+            number = null,
+            summary = null,
+            writer = null,
+            penciller = null,
+            inker = null,
+            colorist = null,
+            letterer = null,
+            coverArtist = null,
+            translator = null,
+            genre = null,
+            tags = null,
+            web = ComicInfo.Web("https://example.test/chapter/10/"),
+            publishingStatus = null,
+            categories = null,
+            source = null,
+            padding = null,
+        )
+        val comicInfoReader = mockk<ChapterDownloadComicInfoReader>()
+        coEvery { comicInfoReader.readComicInfo(entry) } returns comicInfo
+
+        val cleanup = CleanupOrphanedDuplicateChapters(
+            getAllManga = mockk<GetAllManga>(),
+            getManga = getManga,
+            getChaptersByMangaId = getChaptersByMangaId,
+            chapterRepository = chapterRepository,
+            downloadProvider = downloadProvider,
+            sourceManager = sourceManager,
+            comicInfoReader = comicInfoReader,
+            chapterDownloadRepository = chapterDownloadRepository,
+            downloadCache = mockk<DownloadCache>(relaxed = true),
+        )
+
+        val removed = cleanup.await(listOf(manga.id))
+
+        assertEquals(1, removed)
+        assertEquals(5L, updateSlot.captured.id)
+        assertEquals(true, updateSlot.captured.read)
+        coVerify { chapterRepository.removeChaptersWithIds(listOf(9L)) }
+        coVerify(exactly = 0) { chapterDownloadRepository.upsert(any()) }
     }
 }

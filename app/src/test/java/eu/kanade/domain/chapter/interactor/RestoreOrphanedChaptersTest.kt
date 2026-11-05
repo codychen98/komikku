@@ -4,7 +4,6 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.Source
 import io.mockk.CapturingSlot
-import io.mockk.capture
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -30,7 +29,6 @@ class RestoreOrphanedChaptersTest {
         val manga = Manga.create().copy(
             id = 3607L,
             source = 99L,
-            title = mangaTitle,
             ogTitle = mangaTitle,
         )
         val catalog = listOf(
@@ -54,7 +52,6 @@ class RestoreOrphanedChaptersTest {
         val manga = Manga.create().copy(
             id = 3607L,
             source = 99L,
-            title = mangaTitle,
             ogTitle = mangaTitle,
         )
 
@@ -75,7 +72,6 @@ class RestoreOrphanedChaptersTest {
         val manga = Manga.create().copy(
             id = 3607L,
             source = 99L,
-            title = mangaTitle,
             ogTitle = mangaTitle,
         )
         val catalog = listOf(
@@ -100,7 +96,6 @@ class RestoreOrphanedChaptersTest {
         val manga = Manga.create().copy(
             id = 3607L,
             source = 99L,
-            title = mangaTitle,
             ogTitle = mangaTitle,
         )
         val inserted = slot<List<Chapter>>()

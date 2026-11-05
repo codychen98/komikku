@@ -105,7 +105,9 @@ internal object CommentHtml {
             val deltaMs = when {
                 unit.startsWith("秒") || unit.startsWith("sec") -> amount * 1_000L
                 unit.startsWith("分") || unit.startsWith("min") -> amount * 60_000L
-                unit.startsWith("時") || unit.startsWith("时") || unit.startsWith("hour") ->
+                // "小时前" / "小時前" start with 小, not 时/時
+                unit.startsWith("小時") || unit.startsWith("小时") ||
+                    unit.startsWith("時") || unit.startsWith("时") || unit.startsWith("hour") ->
                     amount * 3_600_000L
                 unit.startsWith("天") || unit.startsWith("day") -> amount * 86_400_000L
                 unit.startsWith("週") || unit.startsWith("周") || unit.startsWith("week") ->

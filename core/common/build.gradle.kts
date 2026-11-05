@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.bundles.js.engine)
 
     testImplementation(libs.bundles.test)
+    testImplementation(kotlin("test"))
     testRuntimeOnly(libs.junit.platform.launcher)
 
     // SY -->

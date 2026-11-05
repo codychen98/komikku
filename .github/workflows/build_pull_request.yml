@@ -87,7 +87,7 @@ jobs:
 
       - name: Run unit tests
         id: unit_tests
-        run: ./gradlew testReleaseUnitTest
+        run: ./gradlew testReleaseUnitTest -Pdisable-code-shrink
 
       - name: Upload test report
         if: always() && steps.unit_tests.outcome == 'failure'

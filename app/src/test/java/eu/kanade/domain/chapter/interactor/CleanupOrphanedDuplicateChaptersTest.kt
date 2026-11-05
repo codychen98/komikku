@@ -34,7 +34,6 @@ class CleanupOrphanedDuplicateChaptersTest {
         val manga = Manga.create().copy(
             id = 15L,
             source = 99L,
-            title = "Gentleman's Maid Sophie",
             ogTitle = "Gentleman's Maid Sophie",
         )
         val catalog = Chapter.create().copy(
@@ -122,7 +121,6 @@ class CleanupOrphanedDuplicateChaptersTest {
         val manga = Manga.create().copy(
             id = 15L,
             source = 99L,
-            title = "Gentleman's Maid Sophie",
             ogTitle = "Gentleman's Maid Sophie",
         )
         val catalog = Chapter.create().copy(

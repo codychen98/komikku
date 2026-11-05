@@ -30,7 +30,6 @@ class RestoreOrphanedChaptersTest {
         val manga = Manga.create().copy(
             id = 3607L,
             source = 99L,
-            title = mangaTitle,
             ogTitle = mangaTitle,
         )
         val catalog = listOf(
@@ -54,7 +53,6 @@ class RestoreOrphanedChaptersTest {
         val manga = Manga.create().copy(
             id = 3607L,
             source = 99L,
-            title = mangaTitle,
             ogTitle = mangaTitle,
         )
 
@@ -75,7 +73,6 @@ class RestoreOrphanedChaptersTest {
         val manga = Manga.create().copy(
             id = 3607L,
             source = 99L,
-            title = mangaTitle,
             ogTitle = mangaTitle,
         )
         val catalog = listOf(
@@ -100,7 +97,6 @@ class RestoreOrphanedChaptersTest {
         val manga = Manga.create().copy(
             id = 3607L,
             source = 99L,
-            title = mangaTitle,
             ogTitle = mangaTitle,
         )
         val inserted = slot<List<Chapter>>()

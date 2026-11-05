@@ -112,7 +112,7 @@ class SyncChaptersWithSourceTest {
             url = "/chapter-12-old",
         )
         val dbChapters = listOf(existingDownloadedChapter)
-        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga")
         val sourceChapter = SChapter.create().apply {
             name = "Ch. 12"
             url = "/chapter-12-new"
@@ -174,7 +174,7 @@ class SyncChaptersWithSourceTest {
             name = "Chapter 5.2_ When it rains (Part 2)_02200e",
             url = "/chapter-5-2-old",
         )
-        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga")
         val oldSourceChapter = SChapter.create().apply {
             name = "Ch. 5.2 - When it rains (Part 2)"
             url = "/chapter-5-2-old"
@@ -252,7 +252,7 @@ class SyncChaptersWithSourceTest {
             name = "Chapter 5.1_ When it Rains (Part 1)_70d265",
             url = "/chapter-5-1-old",
         )
-        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga")
         val oldSourceChapter = SChapter.create().apply {
             name = "Ch. 5.1 - When it Rains (Part 1)"
             url = "/chapter-5-1-old"
@@ -329,7 +329,7 @@ class SyncChaptersWithSourceTest {
             scanlator = "GroupA",
             url = "/chapter-12-old",
         )
-        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga")
         val sourceChapter = SChapter.create().apply {
             name = "Chapter 12"
             url = "/chapter-12-new"
@@ -398,7 +398,7 @@ class SyncChaptersWithSourceTest {
             name = "Chapter 50",
             url = "/chapter-50",
         )
-        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga")
         val sourceChapter = SChapter.create().apply {
             name = "Ch. 12"
             url = "/chapter-12-new"
@@ -487,7 +487,7 @@ class SyncChaptersWithSourceTest {
             name = "Chapter 11_ The Point Of No Return_b1f4ca",
             url = "orphaned://Chapter 11_ The Point Of No Return_b1f4ca",
         )
-        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga")
         val sourceChapter = SChapter.create().apply {
             name = "Ch. 11 - The Point Of No Return"
             url = "/chapter-11-new"
@@ -570,7 +570,7 @@ class SyncChaptersWithSourceTest {
             name = "Ch. 11 - The Point Of No Return",
             url = "/chapter-11-new",
         )
-        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga")
         val sourceChapter = SChapter.create().apply {
             name = "Ch. 11 - The Point Of No Return"
             url = "/chapter-11-new"
@@ -652,7 +652,7 @@ class SyncChaptersWithSourceTest {
             name = "Chapter 40",
             url = "/chapter-40-old",
         )
-        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga")
 
         coEvery { getChaptersByMangaId.await(manga.id) } returns listOf(staleDownloaded)
         every { downloadManager.isChapterDownloaded(any(), any(), any(), any(), any()) } returns true
@@ -719,7 +719,7 @@ class SyncChaptersWithSourceTest {
             name = "Ch. 5.2 - When it rains (Part 2)",
             url = "/chapter-5-2-new",
         )
-        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga")
         val sourceOld = SChapter.create().apply {
             name = "Chapter 5.2_ When it rains (Part 2)_02200e"
             url = "/chapter-5-2-old"
@@ -815,7 +815,7 @@ class SyncChaptersWithSourceTest {
             name = "Ch. 5.1 - When it Rains (Part 1)",
             url = "/chapter-5-1-new",
         )
-        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga")
         val sourceNew = SChapter.create().apply {
             name = "Ch. 5.1 - When it Rains (Part 1)"
             url = "/chapter-5-1-new"
@@ -920,7 +920,7 @@ class SyncChaptersWithSourceTest {
             name = "Ch. 5.2 - When it rains (Part 2)",
             url = "/chapter-5-2-md",
         )
-        val manga = Manga.create().copy(id = 10, source = 1L, ogTitle = "Orcsen Oukokushi", title = "Orcsen Oukokushi")
+        val manga = Manga.create().copy(id = 10, source = 1L, ogTitle = "Orcsen Oukokushi")
         val source51 = SChapter.create().apply {
             name = "Ch. 5.1 - When it Rains (Part 1)"
             url = "/chapter-5-1-md"
@@ -1078,7 +1078,7 @@ class SyncChaptersWithSourceTest {
         val getExcludedScanlators = mockk<GetExcludedScanlators>()
         val libraryPreferences = mockk<LibraryPreferences>()
         val markDuplicatePreference = mockk<Preference<Set<String>>>()
-        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga", title = "Test Manga")
+        val manga = Manga.create().copy(id = 10, source = 0L, ogTitle = "Test Manga")
 
         coEvery { getChaptersByMangaId.await(manga.id) } returns dbChapters
         every { downloadManager.isChapterDownloaded(any(), any(), any(), any(), any()) } returns false

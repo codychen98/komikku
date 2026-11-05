@@ -1,0 +1,46 @@
+name: Spotless apply
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch to format and push
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    name: spotlessApply
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Set up gradle
+        uses: gradle/actions/setup-gradle@f29f5a9d7b09a7c6b29859002d29d24e1674c884 # v5
+
+      - name: Apply spotless
+        run: ./gradlew spotlessApply
+
+      - name: Commit and push if needed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No formatting changes"
+            exit 0
+          fi
+          git commit -m "style: spotlessApply"
+          git push origin HEAD

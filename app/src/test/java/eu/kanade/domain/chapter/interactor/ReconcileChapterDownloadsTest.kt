@@ -174,6 +174,9 @@ class ReconcileChapterDownloadsTest {
         every { source.id } returns manga.source
         every { downloadProvider.getSourceDirName(source) } returns sourceName
         every { downloadProvider.getMangaDirName(manga.ogTitle) } returns mangaTitle
+        every { downloadProvider.getRelativeChapterPath(any(), any(), any()) } answers {
+            "$sourceName/$mangaTitle/${thirdArg<String>()}"
+        }
 
         val chapterEntries = folderNames.map { name ->
             mockChapterEntry(name)
@@ -183,16 +186,13 @@ class ReconcileChapterDownloadsTest {
         every { downloadProvider.findMangaDir(manga.ogTitle, source) } returns mangaDir
         coEvery { comicInfoReader.readComicInfo(any()) } returns null
 
-        chapterEntries.forEach { entry ->
-            every {
-                downloadProvider.resolveChapterImageDir(entry)
-            } answers {
-                val entryName = entry.name.orEmpty()
-                DownloadProvider.ResolvedChapterImageDir(
-                    chapterName = entryName,
-                    imageDir = if (entryName in invalidFolderNames) null else mockk(),
-                    isValid = entryName !in invalidFolderNames,
-                )
+        every { downloadProvider.isValidDownloadEntry(any()) } answers {
+            val entry = firstArg<UniFile>()
+            val entryName = entry.name.orEmpty()
+            if (entryName.endsWith(".cbz")) {
+                entry.isFile
+            } else {
+                entryName !in invalidFolderNames
             }
         }
 

@@ -16,7 +16,11 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
@@ -25,10 +29,20 @@ import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.core.common.preference.Preference
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.addSingletonFactory
 import kotlin.test.assertTrue
 
 class SyncChaptersWithSourceTest {
+
+    companion object {
+        @JvmStatic
+        @BeforeAll
+        fun registerPreferenceStore() {
+            // DebugToggles.ENABLE_CHAPTER_DUPLICATE_RECONCILE_LOGGING reads PreferenceStore via Injekt.
+            Injekt.addSingletonFactory<PreferenceStore> { InMemoryPreferenceStore() }
+        }
+    }
 
     @Test
     fun `downloaded removed unread chapters are marked read without deleting`() = runBlocking {

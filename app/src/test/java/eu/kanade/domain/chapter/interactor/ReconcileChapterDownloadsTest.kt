@@ -232,5 +232,7 @@ class ReconcileChapterDownloadsTest {
     private data class TestReconcileHarness(
         val reconcile: ReconcileChapterDownloads,
         val chapterDownloadRepository: ChapterDownloadRepository,
-    )
+    ) {
+        suspend fun await(mangaIds: List<Long>): Int = reconcile.await(mangaIds)
+    }
 }

@@ -4,7 +4,6 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.Source
 import io.mockk.CapturingSlot
-import io.mockk.capture
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every

@@ -54,7 +54,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -126,7 +126,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -194,7 +194,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -272,7 +272,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -344,7 +344,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -423,7 +423,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -501,7 +501,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -594,7 +594,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -661,7 +661,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -749,7 +749,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -838,7 +838,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -953,7 +953,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 
@@ -1087,7 +1087,7 @@ class SyncChaptersWithSourceTest {
         coEvery { updateChapter.awaitAll(any()) } returns Unit
         coEvery { updateManga.awaitUpdateFetchInterval(any(), any(), any()) } returns true
         coEvery { updateManga.awaitUpdateLastUpdate(any()) } returns true
-        coEvery { getExcludedScanlators.await(manga.id) } returns emptyList()
+        coEvery { getExcludedScanlators.await(manga.id) } returns emptySet()
         every { libraryPreferences.markDuplicateReadChapterAsRead() } returns markDuplicatePreference
         every { markDuplicatePreference.get() } returns emptySet()
 

@@ -4,7 +4,6 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.Source
-import io.mockk.anyOrNull
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -68,7 +67,7 @@ class CleanupOrphanedDuplicateChaptersTest {
         val downloadProvider = mockk<DownloadProvider>()
         every { downloadProvider.findMangaDir(manga.ogTitle, any()) } returns mangaDir
         every {
-            downloadProvider.getChapterDirName(any(), anyOrNull(), any(), anyOrNull(), anyOrNull())
+            downloadProvider.getChapterDirName(any(), any(), any(), any(), any())
         } returns "Chapter 10_aabbcc"
         every { downloadProvider.getRelativeChapterPath(any(), any(), any()) } answers {
             "Source/Title/${thirdArg<String>()}"
@@ -155,7 +154,7 @@ class CleanupOrphanedDuplicateChaptersTest {
         val downloadProvider = mockk<DownloadProvider>()
         every { downloadProvider.findMangaDir(manga.ogTitle, any()) } returns mangaDir
         every {
-            downloadProvider.getChapterDirName(any(), anyOrNull(), any(), anyOrNull(), anyOrNull())
+            downloadProvider.getChapterDirName(any(), any(), any(), any(), any())
         } returns "Chapter 10_aabbcc"
         every { downloadProvider.getRelativeChapterPath(any(), any(), any()) } answers {
             "Source/Title/${thirdArg<String>()}"

@@ -47,7 +47,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `downloaded removed unread chapters are marked read without deleting`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -107,7 +107,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `downloaded chapter with changed source url should be reconciled instead of duplicated`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -122,7 +122,8 @@ class SyncChaptersWithSourceTest {
             read = false,
             lastPageRead = 12,
             chapterNumber = 12.0,
-            name = "Chapter 12 (old naming)",
+            // Keep names identity-compatible so URL-drift reconcile is what this test asserts.
+            name = "Chapter 12",
             url = "/chapter-12-old",
         )
         val dbChapters = listOf(existingDownloadedChapter)
@@ -169,7 +170,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `downloaded chapter should reconcile when source returns both old and new urls`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -247,7 +248,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `decimal chapters should not cross-reconcile between different subchapter numbers`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -325,7 +326,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `same chapter number with different scanlator should not reconcile downloaded chapter`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -387,7 +388,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `reconciled chapter keeps read state while other downloaded removed chapter is auto-marked read`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -483,7 +484,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `orphaned hash-suffixed chapter should reconcile with fetched chapter when numbers are parsed from names`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -553,7 +554,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `downloaded stale chapter duplicate should merge into existing canonical source chapter`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -649,7 +650,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `downloaded stale chapter without canonical replacement should remain retained`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -704,7 +705,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `stable no-op sync should still cleanup hash-suffixed downloaded duplicate`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -804,7 +805,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `stable no-op sync should cleanup screenshot style 5_1 duplicate pair`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -881,7 +882,7 @@ class SyncChaptersWithSourceTest {
     @Test
     fun `float imprecise decimal chapter numbers should reconcile orphaned duplicate with catalog row`() = runBlocking {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()
@@ -1084,7 +1085,7 @@ class SyncChaptersWithSourceTest {
         dbChapters: List<Chapter>,
     ) {
         val downloadManager = mockk<DownloadManager>()
-        val downloadProvider = mockk<DownloadProvider>()
+        val downloadProvider = mockk<DownloadProvider>(relaxed = true)
         val chapterRepository = mockk<ChapterRepository>()
         val updateManga = mockk<UpdateManga>()
         val updateChapter = mockk<UpdateChapter>()

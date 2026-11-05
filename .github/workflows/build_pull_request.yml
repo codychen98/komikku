@@ -119,7 +119,7 @@ jobs:
       - name: Rename apk
         id: current_commit
         run: |
-          set -e
+          set -euo pipefail
           echo "The git ref is: ${{ github.ref }}"
           version_tag=p$(echo ${{ github.ref }} | cut -d '/' -f 3)
           commit_count=$(git rev-list --count HEAD)
@@ -127,7 +127,28 @@ jobs:
           echo "VERSION_TAG=$version_tag" >> $GITHUB_OUTPUT
           echo "COMMIT_COUNT=$commit_count"
           echo "COMMIT_COUNT=$commit_count" >> $GITHUB_OUTPUT
-          mv app/build/outputs/apk/preview/app-universal-preview${{ steps.signed_filename.outputs.SIGNED_TRAIL }}.apk Komikku-$version_tag-r$commit_count.apk
+          # Fork builds arm64-only (isUniversalApk=false); prefer that, else any preview APK.
+          signed_trail='${{ steps.signed_filename.outputs.SIGNED_TRAIL }}'
+          shopt -s nullglob
+          candidates=(
+            "app/build/outputs/apk/preview/app-arm64-v8a-preview${signed_trail}.apk"
+            "app/build/outputs/apk/preview/app-universal-preview${signed_trail}.apk"
+            app/build/outputs/apk/preview/*.apk
+          )
+          src=""
+          for candidate in "${candidates[@]}"; do
+            if [[ -f "$candidate" ]]; then
+              src="$candidate"
+              break
+            fi
+          done
+          if [[ -z "$src" ]]; then
+            echo "No preview APK found under app/build/outputs/apk/preview/"
+            ls -la app/build/outputs/apk/preview/ || true
+            exit 1
+          fi
+          echo "Using APK: $src"
+          mv "$src" "Komikku-$version_tag-r$commit_count.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0

@@ -10,7 +10,7 @@ A personal fork of [Komikku](https://github.com/komikku-app/komikku) with additi
 
 1. **Custom Chapter Order** — Manually reorder chapters using drag-and-drop (including multi-select move to top/bottom).
 2. **Chapter Exclusion** — Permanently hide specific chapters from the list; restore them from filters when needed.
-3. **Orphaned Chapter Restoration** — Keep downloaded chapters in the database when the site removes them; reindex restores older orphans. Supports **nested chapter folders** on disk, ComicInfo-aware matching on reindex/merge, and cleaner orphan cleanup after merge. When a source **URL changes**, retained downloads and orphan rows reconcile to the new listing where possible.
+3. **Orphaned Chapter Restoration** — Keep downloaded chapters in the database when the site removes them; reindex restores older orphans. Supports **nested chapter folders** on disk, ComicInfo-aware matching on reindex/merge, and cleaner orphan cleanup after merge. When a source **URL changes**, retained downloads and orphan rows reconcile to the new listing where possible. Reindex also retargets bad digit-prefix folders (e.g. `Fallguy69420_Chapter 10` → chapter 10), with ComicInfo `<Web>` fallback if rename fails.
 4. **Backup via Intent** — Trigger backups programmatically via ADB or automation (e.g. Tasker / MacroDroid), tested on rooted device. Each backup also writes a Mihon-readable sibling file.
 5. **Hitomi filtering fix** — Restores working Hitomi filters by fixing `QuerySanitizer` behavior that upstream changes broke.
 6. **Ignore duplicated chapters (reworked)** — In **Settings → Reader**, turn **Skip duplicate chapters** on to skip duplicated same chapters while you read. On each manga’s chapter list, **Skip sub-chapter duplicates** is optional and only shows when that global setting is on; if you turn it on for that manga, the reader also skips sub-chapters (for example 3.1 when 3.0 exists).
@@ -20,6 +20,9 @@ A personal fork of [Komikku](https://github.com/komikku-app/komikku) with additi
 10. **MangaDex alternative titles** — MangaDex **More info** lists every alternative title from the API (all locales), each with its own copy button. Refresh the manga if it was cached before this update.
 11. **Author and artist search** — On MangaFire and MangaDex, the original search might return manga under a different author name than the name you search for. Tapping an author or artist now returns manga by that person. If the credit lists more than one name, each name is searched separately and the results are combined. Other sources are unchanged.
 12. **Hide non-downloaded duplicates** — The chapter list used to show every scanlator for a chapter number, including ones you have not downloaded. On each manga, **Hide non-downloaded duplicates** keeps only the downloaded version of that number. A number with no download still shows every version. The reader and downloads are unchanged.
+13. **Move downloads on migrate** — Optional migrate switch copies downloads onto the new source. Matching chapter numbers get checkmarks on catalog rows; numbers the new source does not list become downloaded orphans on the new entry (not left only on the old one). Mutually exclusive with delete-downloads.
+14. **MangaDex MangaPlus chapters** — External MangaPlus chapters opened from MangaDex use the protobuf viewer (the old JSON endpoint was retired and returned 403).
+15. **Source metadata & comments** — MangaFire shows rating, votes, follows, year, content rating, and alt titles without extension changes. MangaDex adds follows and year. Read-only **Comments** on the manga page for MangaDex, CopyManga, and Jinman Tiantang (fetch on open).
 
 ---
 
@@ -46,8 +49,9 @@ A personal fork of [Komikku](https://github.com/komikku-app/komikku) with additi
 
 When a site drops a chapter from its listing, Komikku normally deletes the DB row even if files remain on disk. This fork changes that:
 
-- **Automatic:** Downloaded chapters are kept in the database during sync.
+- **Automatic:** Downloaded chapters are kept in the database during sync (`orphaned://` rows are not purged as normal source removals).
 - **Manual:** **Settings → Data & Storage → Reindex downloads** (and related Library **Advanced** actions where reindex/merge is exposed) restores orphans from disk, including **nested chapter directories**. Reindex/merge uses URL and ComicInfo-style matching to attach orphans to catalog chapters, drop false duplicate orphan rows, merge read progress where appropriate, and tidy empty folders after moves.
+- **Digit-prefix folders:** Names like `Fallguy69420_Chapter 10` reindex onto catalog chapter **10** (fixes bogus “Missing 69409 chapters” banners). If the retarget rename fails, ComicInfo `<Web>` matching is still tried.
 
 ### 4. Backup via Intent
 
@@ -108,6 +112,20 @@ On a manga’s chapter list, turn on **Hide non-downloaded duplicates**. The chi
 <img src="docs/hide-non-downloaded-duplicates-after.png" alt="After: only the downloaded Akatsuki Scans copy of Vol.7 Ch.35 remains." width="540">
 
 A chapter number with no download still shows every version. Delete the downloaded copy and the hidden versions show again. This only changes the list. Reading and downloading are unchanged.
+
+### 11. Move Downloads on Migrate
+
+1. Start a migrate to another source.
+2. Turn **Move downloads to the new source** on (under delete-downloads). Turning one on clears the other.
+3. Finish migrate and open the new library entry — no reindex required for a normal move.
+
+Matching numbers show download checkmarks on the new catalog rows. Numbers the new source does not list appear as downloaded orphans on that same entry. Past migrations that left files only on the old folder still need a one-time copy + reindex.
+
+### 12. Source Metadata & Comments
+
+- **MangaFire:** Title page shows rating, votes, follows, year, content rating, and alt titles (app-side overlay; no Comments button).
+- **MangaDex:** Follows and year appear with existing rating metadata. **Comments** opens a read-only sheet of forum posts.
+- **CopyManga / Jinman Tiantang:** **Comments** opens a read-only sheet (CopyManga is scoped to the latest chapter). Unsupported sources hide the button. Comments load only when the sheet opens.
 
 ## To use this fork while keeping your data (rooted device only)
 

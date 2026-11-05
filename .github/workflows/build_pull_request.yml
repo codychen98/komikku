@@ -27,6 +27,11 @@ jobs:
   build:
     name: Build app
     runs-on: 'ubuntu-24.04'
+    env:
+      # secrets.* is not allowed in step if:; map presence into env instead.
+      HAS_GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES_JSON != '' }}
+      HAS_GOOGLE_CLIENT_SECRETS: ${{ secrets.GOOGLE_CLIENT_SECRETS_JSON != '' }}
+      HAS_SIGNING_KEY: ${{ secrets.SIGNING_KEY != '' }}
 
     steps:
       - name: Clone repo
@@ -47,9 +52,7 @@ jobs:
           distribution: temurin
 
       - name: Write google-services.json
-        if: >-
-          github.repository == github.event.pull_request.head.repo.full_name &&
-          secrets.GOOGLE_SERVICES_JSON != ''
+        if: github.repository == github.event.pull_request.head.repo.full_name && env.HAS_GOOGLE_SERVICES == 'true'
         uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
         with:
           path: app/google-services.json
@@ -57,9 +60,7 @@ jobs:
           write-mode: overwrite
 
       - name: Write client_secrets.json
-        if: >-
-          github.repository == github.event.pull_request.head.repo.full_name &&
-          secrets.GOOGLE_CLIENT_SECRETS_JSON != ''
+        if: github.repository == github.event.pull_request.head.repo.full_name && env.HAS_GOOGLE_CLIENT_SECRETS == 'true'
         uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
         with:
           path: app/src/main/assets/client_secrets.json
@@ -73,15 +74,11 @@ jobs:
         run: ./gradlew spotlessCheck
 
       - name: Build app
-        if: >-
-          github.repository == github.event.pull_request.head.repo.full_name &&
-          secrets.GOOGLE_SERVICES_JSON != ''
+        if: github.repository == github.event.pull_request.head.repo.full_name && env.HAS_GOOGLE_SERVICES == 'true'
         run: ./gradlew assemblePreview -Pinclude-telemetry -Penable-updater
 
       - name: Build app
-        if: >-
-          github.repository != github.event.pull_request.head.repo.full_name ||
-          secrets.GOOGLE_SERVICES_JSON == ''
+        if: github.repository != github.event.pull_request.head.repo.full_name || env.HAS_GOOGLE_SERVICES != 'true'
         run: ./gradlew assemblePreview
 
       - name: Run unit tests
@@ -96,9 +93,7 @@ jobs:
           path: app/build/reports/tests/testReleaseUnitTest
 
       - name: Sign APK
-        if: >-
-          github.repository == github.event.pull_request.head.repo.full_name &&
-          secrets.SIGNING_KEY != ''
+        if: github.repository == github.event.pull_request.head.repo.full_name && env.HAS_SIGNING_KEY == 'true'
         uses: r0adkll/sign-android-release@f30bdd30588842ac76044ecdbd4b6d0e3e813478
         with:
           releaseDirectory: app/build/outputs/apk/preview
@@ -111,9 +106,7 @@ jobs:
 
       - name: Signed File name
         id: signed_filename
-        if: >-
-          github.repository == github.event.pull_request.head.repo.full_name &&
-          secrets.SIGNING_KEY != ''
+        if: github.repository == github.event.pull_request.head.repo.full_name && env.HAS_SIGNING_KEY == 'true'
         run: |
           echo "SIGNED_TRAIL=-signed" >> $GITHUB_OUTPUT
 
